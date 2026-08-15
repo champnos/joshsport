@@ -1,0 +1,39 @@
+[
+  {
+    "id": "1",
+    "name": "Sports Massage",
+    "description": "A targeted massage designed for athletes and active individuals to aid performance, prevent injury and support recovery. Suitable before or after exercise.",
+    "durations": [30, 60, 90],
+    "pricingModel": "per30min",
+    "price": 30,
+    "active": true
+  },
+  {
+    "id": "2",
+    "name": "Deep Tissue Massage",
+    "description": "Works into the deeper layers of muscle tissue to release chronic tension, knots and restrictions. Ideal for persistent pain or postural issues.",
+    "durations": [60, 90],
+    "pricingModel": "fixed",
+    "price": 55,
+    "price90": 75,
+    "active": true
+  },
+  {
+    "id": "3",
+    "name": "Post-Event Recovery",
+    "description": "Gentle yet effective techniques to flush out metabolic waste, reduce DOMS and speed up recovery after competition or intense training.",
+    "durations": [30, 60],
+    "pricingModel": "per30min",
+    "price": 30,
+    "active": true
+  },
+  {
+    "id": "4",
+    "name": "Pre-Event Treatment",
+    "description": "Activating and stimulating massage to prime your muscles for competition. Increases blood flow, reduces tension and sharpens neuromuscular readiness.",
+    "durations": [30],
+    "pricingModel": "fixed",
+    "price": 30,
+    "active": true
+  }
+]
