@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
@@ -31,8 +32,15 @@ export default function Navbar() {
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
 
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-brand-gold font-extrabold text-xl tracking-widest">MMT</span>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/logo.png"
+            alt="MMT Logo"
+            width={80}
+            height={32}
+            className="h-10 w-auto object-contain"
+            priority
+          />
         </Link>
       </nav>
 
