@@ -14,7 +14,7 @@ const navLinks = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-[#011a42]/95 backdrop-blur-sm border-b border-white/15">
+    <header className="fixed inset-x-0 top-0 z-50 bg-gray-950 border-b border-white/10">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <div className="hidden md:flex items-center gap-10 text-sm text-white/80">
           {navLinks.map((l) => (
@@ -36,9 +36,9 @@ export default function Navbar() {
           <Image
             src="/logo.png"
             alt="MMT Logo"
-            width={80}
-            height={32}
-            className="h-10 w-auto object-contain"
+            width={160}
+            height={64}
+            className="h-16 w-auto object-contain"
             priority
           />
         </Link>

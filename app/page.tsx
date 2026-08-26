@@ -70,7 +70,7 @@ export default function Home() {
           <span className="inline-block text-xs font-bold uppercase tracking-widest text-brand-blue bg-brand-gold px-3 py-1 rounded-full mb-6">
             Bristol &amp; Bath
           </span>
-          <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">JOSH MAGGS</h1>
+          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">JOSH MAGGS</h1>
           <div className="mt-4 w-16 h-1 bg-brand-gold rounded-full" />
           <p className="mt-6 text-xl font-medium text-brand-gold">Mobile Sports Massage Therapy</p>
           <p className="mt-4 max-w-2xl text-lg text-white/75">
