@@ -51,7 +51,7 @@ export default function TreatmentsPage() {
       <div className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-8 lg:grid-cols-2">
           {treatments.map((t) => (
-            <div key={t.id} className="border border-brand-blue/10 rounded-2xl p-8 flex flex-col shadow-sm">
+            <div key={t.id} className="border-t border-r border-b border-brand-blue/10 border-l-4 border-l-brand-gold rounded-2xl p-8 flex flex-col shadow-sm">
               <h2 className="text-2xl font-bold text-brand-blue">{t.name}</h2>
               <p className="mt-3 text-gray-600 leading-7 flex-1">{t.description}</p>
               <div className="mt-6">

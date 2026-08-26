@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer className="bg-brand-blue border-t border-white/20">
+    <footer className="bg-brand-blue border-t-2 border-brand-gold/30">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-3 lg:px-8">
         <div>
           <h2 className="text-xl font-bold text-white">Josh Maggs</h2>
