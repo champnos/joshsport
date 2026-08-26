@@ -1,34 +1,38 @@
+export interface TreatmentDuration {
+  mins: number;
+  price: number;
+}
+
 export interface Treatment {
   id: string;
   name: string;
   description: string;
-  durations: number[];
-  pricingModel: "fixed" | "per30min";
-  price: number;
-  price90?: number;
-  price120?: number;
+  durations: TreatmentDuration[];
   active: boolean;
+  created_at?: string;
 }
 
 export interface Booking {
   id: string;
-  treatmentId: string;
-  treatmentName: string;
+  treatment_id: string;
+  treatment_name: string;
+  duration_mins: number;
   date: string;
-  startTime: string;
-  durationMins: number;
-  clientName: string;
-  clientEmail: string;
-  clientPhone: string;
-  notes: string;
+  start_time: string;
+  client_name: string;
+  client_dob: string;
+  client_phone: string;
+  client_address: string;
+  client_postcode: string;
+  emergency_name: string;
+  emergency_relationship: string;
+  emergency_phone: string;
+  medical_conditions: string[];
+  medical_notes: string;
+  injury_recent: boolean;
+  injury_recent_notes: string;
+  injury_previous: boolean;
+  injury_previous_notes: string;
   status: "pending" | "confirmed" | "cancelled";
-  createdAt: string;
+  created_at?: string;
 }
-
-export interface WorkingDay {
-  open: boolean;
-  start: string;
-  end: string;
-}
-
-export type WorkingHours = Record<string, WorkingDay>;

@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --background: 3 7 18;
-  --foreground: 243 244 246;
-  --card: 17 24 39;
+  --font-inter: "Inter";
+  --background: 1 34 85;
+  --foreground: 255 255 255;
+  --card: 255 255 255;
   --muted: 107 114 128;
-  --accent: 22 163 74;
 }
 
 * {
-  border-color: rgb(31 41 55);
+  border-color: rgb(255 255 255 / 0.1);
 }
 
 html {
@@ -20,29 +20,16 @@ html {
 
 body {
   color: rgb(var(--foreground));
-  background: rgb(var(--background));
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background: #012255;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
 @layer base {
-  h1,
-  h2,
-  h3,
-  h4 {
-    @apply text-balance;
-  }
-
-  p {
-    @apply text-pretty;
-  }
+  h1, h2, h3, h4 { @apply text-balance; }
+  p { @apply text-pretty; }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  .text-pretty {
-    text-wrap: pretty;
-  }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
 }

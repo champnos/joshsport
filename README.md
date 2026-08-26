@@ -1,63 +1,69 @@
-# Josh Maggs Sports Massage Website
+# Josh Maggs | MMT – Mobile Sports Massage Therapy
 
-A complete Next.js 14 App Router website for Josh Maggs Sports Massage Therapy, built with Tailwind CSS and shadcn-style UI components. The site includes public marketing pages, a client booking flow, and a password-protected admin area backed by JSON file storage.
+A complete Next.js 14 App Router website for Josh Maggs / Maggs Massage Therapy (MMT), built with Tailwind CSS and Supabase.
 
 ## Tech Stack
-
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS
-- shadcn-style UI components
-- JSON file storage in `data/`
+- **Next.js 14** (App Router + TypeScript)
+- **Tailwind CSS** with brand tokens (`brand-blue: #012255`, `brand-gold: #d4a62d`)
+- **Supabase** for database (treatments + bookings)
+- **shadcn/ui** components
+- **Vercel** ready
 
 ## Features
-
-- Mobile-first landing page with athletic dark theme
-- Treatments page powered by `data/treatments.json`
-- Multi-step booking flow with live availability lookup
-- Admin area for treatment management and booking status updates
-- File-based booking storage with no database required
+- Mobile-first landing page with brand colours
+- Treatments page with all 4 treatments and full pricing
+- 7-step booking flow (treatment → date/time → details → emergency contact → medical history → injury history → confirm)
+- Availability checking with 30-min slot blocking (9am–8pm, up to 2 weeks in advance)
+- Admin panel (password protected) for managing treatments and bookings
+- Supabase-backed API routes
 
 ## Getting Started
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Create your environment file:
-   ```bash
-   cp .env.example .env.local
-   ```
-3. Set an admin password in `.env.local`:
-   ```env
-   ADMIN_PASSWORD=your-secure-password
-   ADMIN_SESSION_SECRET=replace-with-a-long-random-string
-   ```
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-5. Visit:
-   - `http://localhost:3000` — website
-   - `http://localhost:3000/admin` — admin panel
-
-## Data Storage
-
-The site uses JSON files inside `data/`:
-
-- `data/treatments.json` — editable treatment catalogue
-- `data/bookings.json` — booking requests (gitignored)
-- `data/working-hours.json` — business availability used to generate slots
-
-## Build
-
+### 1. Install dependencies
 ```bash
-npm run build
+npm install
 ```
 
-## Deployment Notes
+### 2. Set up Supabase
+1. Create a free project at [supabase.com](https://supabase.com)
+2. In the Supabase SQL editor, run the contents of `supabase/schema.sql`
+3. Go to **Project Settings → API** and copy:
+   - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
+   - `anon` public key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-- This project is designed for environments where the filesystem is writable.
-- Ensure `ADMIN_PASSWORD` is configured in production.
-- Set `ADMIN_SESSION_SECRET` in production to a long random string so admin sessions remain valid across restarts and instances.
-- If you deploy to a serverless environment, persisted JSON writes may require adapted storage.
+### 3. Configure environment variables
+```bash
+cp .env.example .env.local
+```
+Edit `.env.local`:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+ADMIN_PASSWORD=your-secure-password
+```
+
+### 4. Run development server
+```bash
+npm run dev
+```
+
+Visit:
+- `http://localhost:3000` — website
+- `http://localhost:3000/admin` — admin panel
+
+## Deploying to Vercel
+1. Push to GitHub
+2. Import the repo in [vercel.com](https://vercel.com)
+3. Add the environment variables from `.env.local` in the Vercel dashboard
+4. Deploy — Vercel will auto-build on every push to `main`
+
+## Adding the Real Logo
+Replace `public/logo.svg` with the real MMT logo file (`logo.png` or `logo.svg`), then update `components/Navbar.tsx` to use:
+```tsx
+<Image src="/logo.png" alt="MMT Logo" width={120} height={48} />
+```
+
+## Adding Photos
+Look for `TODO: Replace with <Image ...` comments throughout the code to find photo placeholder spots:
+- `app/page.tsx` — Josh's profile photo in the About section
+- `app/treatments/page.tsx` — treatment photos section
