@@ -13,11 +13,11 @@ const navLinks = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-brand-blue border-b border-white/10">
+    <header className="fixed inset-x-0 top-0 z-50 bg-[#011a42]/95 backdrop-blur-sm border-b border-white/15">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <div className="hidden md:flex items-center gap-8 text-sm text-white/80">
+        <div className="hidden md:flex items-center gap-10 text-sm text-white/80">
           {navLinks.map((l) => (
-            <Link key={l.href} href={l.href} className="hover:text-brand-gold transition-colors font-medium">
+            <Link key={l.href} href={l.href} className="hover:text-brand-gold transition-colors font-medium tracking-wide">
               {l.label}
             </Link>
           ))}
@@ -32,14 +32,12 @@ export default function Navbar() {
         </button>
 
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex items-center justify-center rounded-lg bg-white px-3 py-1">
-            <span className="text-brand-blue font-bold text-xl tracking-tight">MMT</span>
-          </div>
+          <span className="text-brand-gold font-extrabold text-xl tracking-widest">MMT</span>
         </Link>
       </nav>
 
       {open && (
-        <div className="md:hidden bg-brand-blue border-t border-white/10 px-4 pb-4 space-y-3">
+        <div className="md:hidden bg-[#011a42] border-t border-white/15 px-4 pb-4 space-y-3">
           {navLinks.map((l) => (
             <Link
               key={l.href}
