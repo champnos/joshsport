@@ -1,418 +1,446 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Booking, Treatment, TreatmentDuration } from "@/lib/types";
 
-import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Booking, Treatment } from "@/lib/types";
-import { formatCurrency, getTreatmentPrice } from "@/lib/utils";
+interface TreatmentFormState {
+  id?: string;
+  name: string;
+  description: string;
+  durations: TreatmentDuration[];
+  active: boolean;
+}
 
-const defaultTreatmentForm = {
+const emptyForm: TreatmentFormState = {
   name: "",
   description: "",
-  durations: "30,60",
-  pricingModel: "per30min",
-  price: "30",
-  price90: "",
-  price120: "",
+  durations: [{ mins: 30, price: 25 }],
   active: true,
 };
 
-function getStatusVariant(status: Booking["status"]) {
-  if (status === "confirmed") return "default";
-  if (status === "cancelled") return "destructive";
-  return "secondary";
+function getStatusColor(status: string) {
+  if (status === "confirmed") return "bg-green-100 text-green-800";
+  if (status === "cancelled") return "bg-red-100 text-red-800";
+  return "bg-yellow-100 text-yellow-800";
 }
 
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [isAuthed, setIsAuthed] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [activeTab, setActiveTab] = useState<"bookings" | "treatments">("bookings");
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [activeTab, setActiveTab] = useState("treatments");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
-  const [formData, setFormData] = useState(defaultTreatmentForm);
-  const [pageError, setPageError] = useState("");
-  const [loginSubmitting, setLoginSubmitting] = useState(false);
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [savingTreatment, setSavingTreatment] = useState(false);
+  const [treatmentError, setTreatmentError] = useState("");
+  const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
+  const [form, setForm] = useState<TreatmentFormState>(emptyForm);
 
-  const upcomingBookings = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return bookings.filter((booking) => booking.date >= today).sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
-  }, [bookings]);
+  const headers = useMemo(
+    () => ({ "x-admin-password": password, "Content-Type": "application/json" }),
+    [password],
+  );
 
-  const loadData = async () => {
-    const [treatmentsResponse, bookingsResponse] = await Promise.all([fetch("/api/treatments"), fetch("/api/bookings")]);
-
-    if (!treatmentsResponse.ok || !bookingsResponse.ok) {
-      throw new Error("Unable to load admin data.");
-    }
-
-    const treatmentsData = await treatmentsResponse.json();
-    const bookingsData = await bookingsResponse.json();
-
-    setTreatments(treatmentsData);
-    setBookings(bookingsData);
-  };
-
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch("/api/admin/auth");
-        if (!response.ok) {
-          setIsAuthed(false);
-          return;
-        }
-
-        setIsAuthed(true);
-        await loadData();
-      } catch {
-        setPageError("Unable to load admin data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void checkSession();
-  }, []);
-
-  const handleLogin = async () => {
-    setLoginSubmitting(true);
-    setAuthError("");
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const response = await fetch("/api/admin/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
+      const [bRes, tRes] = await Promise.all([
+        fetch("/api/bookings", { headers }),
+        fetch("/api/treatments"),
+      ]);
 
-      if (!response.ok) {
-        throw new Error("Invalid password.");
+      if (!bRes.ok) {
+        const bookingError = await bRes.json().catch(() => null);
+        throw new Error(bookingError?.error ?? "Failed to load bookings.");
       }
 
-      setIsAuthed(true);
-      setLoading(true);
-      await loadData();
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to sign in.");
+      if (!tRes.ok) {
+        const treatmentError = await tRes.json().catch(() => null);
+        throw new Error(treatmentError?.error ?? "Failed to load treatments.");
+      }
+
+      setBookings(await bRes.json());
+      setTreatments(await tRes.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data.");
     } finally {
-      setLoginSubmitting(false);
       setLoading(false);
     }
+  }, [headers]);
+
+  useEffect(() => {
+    if (isAuthed) {
+      void loadData();
+    }
+  }, [isAuthed, loadData]);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditingTreatmentId(null);
+    setTreatmentError("");
   };
 
-  const openAddDialog = () => {
-    setEditingTreatment(null);
-    setFormData(defaultTreatmentForm);
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = (treatment: Treatment) => {
-    setEditingTreatment(treatment);
-    setFormData({
-      name: treatment.name,
-      description: treatment.description,
-      durations: treatment.durations.join(","),
-      pricingModel: treatment.pricingModel,
-      price: treatment.price.toString(),
-      price90: treatment.price90?.toString() ?? "",
-      price120: treatment.price120?.toString() ?? "",
-      active: treatment.active,
-    });
-    setDialogOpen(true);
-  };
-
-  const saveTreatment = async () => {
-    setPageError("");
-    const payload = {
-      name: formData.name,
-      description: formData.description,
-      durations: formData.durations
-        .split(",")
-        .map((value) => Number(value.trim()))
-        .filter((value) => Number.isFinite(value) && value > 0),
-      pricingModel: formData.pricingModel as Treatment["pricingModel"],
-      price: Number(formData.price),
-      price90: formData.price90 ? Number(formData.price90) : undefined,
-      price120: formData.price120 ? Number(formData.price120) : undefined,
-      active: formData.active,
-    };
-
-    const response = await fetch(editingTreatment ? `/api/treatments/${editingTreatment.id}` : "/api/treatments", {
-      method: editingTreatment ? "PUT" : "POST",
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/admin/auth", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ password }),
     });
-
-    if (!response.ok) {
-      const data = await response.json();
-      setPageError(data.error || "Unable to save treatment.");
-      return;
+    if (res.ok) {
+      setIsAuthed(true);
+      setAuthError("");
+    } else {
+      setAuthError("Incorrect password.");
     }
-
-    await loadData();
-    setDialogOpen(false);
   };
 
-  const deleteTreatment = async () => {
-    if (!deleteId) return;
-
-    const response = await fetch(`/api/treatments/${deleteId}`, { method: "DELETE" });
-    if (!response.ok) {
-      setPageError("Unable to delete treatment.");
-      return;
-    }
-    await loadData();
-    setDeleteId(null);
-  };
-
-  const updateBookingStatus = async (bookingId: string, status: Booking["status"]) => {
-    const response = await fetch(`/api/bookings/${bookingId}`, {
+  const updateBookingStatus = async (id: string, status: Booking["status"]) => {
+    const res = await fetch(`/api/bookings/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ status }),
     });
-    if (!response.ok) {
-      setPageError("Unable to update booking status.");
-      return;
+    if (res.ok) {
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     }
-    await loadData();
   };
 
-  if (loading) {
-    return (
-      <div className="mx-auto flex min-h-[70vh] max-w-md items-center justify-center px-4 py-16 text-sm text-gray-400 sm:px-6 lg:px-8">
-        Checking admin session...
-      </div>
-    );
-  }
+  const toggleTreatmentActive = async (treatment: Treatment) => {
+    const res = await fetch(`/api/treatments/${treatment.id}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ active: !treatment.active }),
+    });
+    if (res.ok) {
+      const updated = (await res.json()) as Treatment;
+      setTreatments((prev) => prev.map((item) => (item.id === treatment.id ? updated : item)));
+    }
+  };
+
+  const startEdit = (treatment: Treatment) => {
+    setEditingTreatmentId(treatment.id);
+    setTreatmentError("");
+    setForm({
+      id: treatment.id,
+      name: treatment.name,
+      description: treatment.description,
+      durations: treatment.durations.length > 0 ? treatment.durations : [{ mins: 30, price: 25 }],
+      active: treatment.active,
+    });
+    setActiveTab("treatments");
+  };
+
+  const updateDuration = (index: number, field: keyof TreatmentDuration, value: number) => {
+    setForm((prev) => ({
+      ...prev,
+      durations: prev.durations.map((duration, durationIndex) => (
+        durationIndex === index ? { ...duration, [field]: value } : duration
+      )),
+    }));
+  };
+
+  const addDuration = () => {
+    setForm((prev) => ({
+      ...prev,
+      durations: [...prev.durations, { mins: 30, price: 25 }],
+    }));
+  };
+
+  const removeDuration = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      durations: prev.durations.filter((_, durationIndex) => durationIndex !== index),
+    }));
+  };
+
+  const saveTreatment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTreatmentError("");
+
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      active: form.active,
+      durations: form.durations.filter((duration) => duration.mins > 0 && duration.price > 0),
+    };
+
+    if (!payload.name || payload.durations.length === 0) {
+      setTreatmentError("Add a name and at least one valid duration.");
+      return;
+    }
+
+    setSavingTreatment(true);
+    try {
+      const res = await fetch(editingTreatmentId ? `/api/treatments/${editingTreatmentId}` : "/api/treatments", {
+        method: editingTreatmentId ? "PUT" : "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setTreatmentError(data?.error ?? "Unable to save treatment.");
+        return;
+      }
+
+      const savedTreatment = data as Treatment;
+      setTreatments((prev) => (
+        editingTreatmentId
+          ? prev.map((item) => (item.id === savedTreatment.id ? savedTreatment : item))
+          : [...prev, savedTreatment]
+      ));
+      resetForm();
+    } catch {
+      setTreatmentError("Unable to save treatment.");
+    } finally {
+      setSavingTreatment(false);
+    }
+  };
+
+  const deleteTreatment = async (id: string) => {
+    const res = await fetch(`/api/treatments/${id}`, {
+      method: "DELETE",
+      headers,
+    });
+
+    if (res.ok) {
+      setTreatments((prev) => prev.filter((treatment) => treatment.id !== id));
+      if (editingTreatmentId === id) resetForm();
+    }
+  };
 
   if (!isAuthed) {
     return (
-      <div className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-16 sm:px-6 lg:px-8">
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>Admin sign in</CardTitle>
-            <CardDescription>Enter the admin password to manage treatments and bookings.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="admin-password">Password</Label>
-              <Input
-                id="admin-password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="mt-2"
-              />
-            </div>
-            {authError ? <p className="text-sm text-red-300">{authError}</p> : null}
-            <Button className="w-full" onClick={handleLogin} disabled={loginSubmitting || !password}>
-              {loginSubmitting ? "Checking..." : "Enter admin panel"}
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-brand-blue flex items-center justify-center px-4">
+        <form onSubmit={handleLogin} className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-xl">
+          <h1 className="text-2xl font-bold text-brand-blue mb-6">Admin Login</h1>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none mb-4"
+            placeholder="Enter admin password"
+          />
+          {authError && <p className="text-red-600 text-sm mb-3">{authError}</p>}
+          <button type="submit" className="w-full bg-brand-blue text-white font-bold py-3 rounded-lg hover:opacity-90">
+            Login
+          </button>
+        </form>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-green-400">Admin</p>
-        <h1 className="mt-4 text-4xl font-semibold text-white sm:text-5xl">Manage treatments and bookings.</h1>
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-brand-blue py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <h1 className="text-2xl font-bold text-white">MMT Admin Panel</h1>
+        </div>
       </div>
 
-      {pageError ? <div className="mt-6 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{pageError}</div> : null}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="flex gap-4 mb-8">
+          {(["bookings", "treatments"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2 rounded-lg font-semibold text-sm capitalize transition-colors ${activeTab === tab ? "bg-brand-blue text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-brand-blue"}`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">
-        <TabsList>
-          <TabsTrigger value="treatments">Treatments</TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
-        </TabsList>
+        {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
+        {loading && <p className="text-gray-500 text-sm">Loading…</p>}
 
-        <TabsContent value="treatments">
-          <Card>
-            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Treatment catalogue</CardTitle>
-                <CardDescription>Create, edit or remove services from the website.</CardDescription>
-              </div>
-              <Button onClick={openAddDialog}>Add treatment</Button>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm text-gray-300">
-                  <thead className="border-b border-gray-800 text-xs uppercase tracking-[0.2em] text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3">Name</th>
-                      <th className="px-4 py-3">Durations</th>
-                      <th className="px-4 py-3">Pricing</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {treatments.map((treatment) => (
-                      <tr key={treatment.id} className="border-b border-gray-900">
-                        <td className="px-4 py-4 align-top">
-                          <p className="font-medium text-white">{treatment.name}</p>
-                          <p className="mt-1 max-w-md text-xs text-gray-500">{treatment.description}</p>
-                        </td>
-                        <td className="px-4 py-4 align-top">{treatment.durations.join(", ")} mins</td>
-                        <td className="px-4 py-4 align-top">
-                          {treatment.durations.map((duration) => (
-                            <div key={duration}>{duration}m · {formatCurrency(getTreatmentPrice(treatment, duration))}</div>
-                          ))}
-                        </td>
-                        <td className="px-4 py-4 align-top">
-                          <Badge variant={treatment.active ? "default" : "secondary"}>{treatment.active ? "Active" : "Inactive"}</Badge>
-                        </td>
-                        <td className="px-4 py-4 align-top">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => openEditDialog(treatment)}>Edit</Button>
-                            <Button size="sm" variant="destructive" onClick={() => setDeleteId(treatment.id)}>Delete</Button>
-                          </div>
-                        </td>
-                      </tr>
+        {activeTab === "bookings" && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-brand-blue">{bookings.length} Booking(s)</h2>
+            {bookings.length === 0 && !loading && <p className="text-gray-500 text-sm">No bookings yet.</p>}
+            {bookings.map((b) => (
+              <div key={b.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="font-bold text-brand-blue">{b.client_name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${getStatusColor(b.status)}`}>{b.status}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{b.treatment_name} · {b.duration_mins} mins</p>
+                    <p className="text-sm text-gray-600">{b.date} at {b.start_time}</p>
+                    <p className="text-sm text-gray-500 mt-1">{b.client_address}, {b.client_postcode}</p>
+                    <p className="text-sm text-gray-500">{b.client_phone}</p>
+                    {b.medical_conditions.length > 0 && !b.medical_conditions.includes("None of the above") && (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 mt-2">
+                        ⚠ Medical: {b.medical_conditions.join(", ")}
+                        {b.medical_notes && ` — ${b.medical_notes}`}
+                      </p>
+                    )}
+                    {b.injury_recent && (
+                      <p className="text-xs text-red-700 bg-red-50 rounded px-2 py-1 mt-1">Recent injury: {b.injury_recent_notes}</p>
+                    )}
+                    {b.injury_previous && (
+                      <p className="text-xs text-orange-700 bg-orange-50 rounded px-2 py-1 mt-1">Previous injuries: {b.injury_previous_notes}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {(["pending", "confirmed", "cancelled"] as const).map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => void updateBookingStatus(b.id, status)}
+                        disabled={b.status === status}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors ${b.status === status ? "bg-brand-blue text-white border-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
+                      >
+                        {status}
+                      </button>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            ))}
+          </div>
+        )}
 
-        <TabsContent value="bookings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming bookings</CardTitle>
-              <CardDescription>Review requests and keep statuses up to date.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm text-gray-300">
-                  <thead className="border-b border-gray-800 text-xs uppercase tracking-[0.2em] text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3">Client</th>
-                      <th className="px-4 py-3">Session</th>
-                      <th className="px-4 py-3">Contact</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {upcomingBookings.map((booking) => (
-                      <tr key={booking.id} className="border-b border-gray-900">
-                        <td className="px-4 py-4 align-top">
-                          <p className="font-medium text-white">{booking.clientName}</p>
-                          <p className="mt-1 text-xs text-gray-500">{booking.notes || "No notes provided."}</p>
-                        </td>
-                        <td className="px-4 py-4 align-top">
-                          <p>{booking.treatmentName}</p>
-                          <p className="mt-1 text-xs text-gray-500">{booking.date} at {booking.startTime} · {booking.durationMins} mins</p>
-                        </td>
-                        <td className="px-4 py-4 align-top">
-                          <p>{booking.clientEmail}</p>
-                          <p className="mt-1 text-xs text-gray-500">{booking.clientPhone}</p>
-                        </td>
-                        <td className="px-4 py-4 align-top">
-                          <Badge variant={getStatusVariant(booking.status)}>{booking.status}</Badge>
-                        </td>
-                        <td className="px-4 py-4 align-top">
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => updateBookingStatus(booking.id, "confirmed")}>Confirm</Button>
-                            <Button size="sm" variant="destructive" onClick={() => updateBookingStatus(booking.id, "cancelled")}>Cancel</Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {upcomingBookings.length === 0 ? <p className="px-4 py-8 text-sm text-gray-500">No upcoming bookings yet.</p> : null}
+        {activeTab === "treatments" && (
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,380px)_1fr]">
+            <form onSubmit={saveTreatment} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4 h-fit">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-lg font-bold text-brand-blue">{editingTreatmentId ? "Edit treatment" : "Add treatment"}</h2>
+                {editingTreatmentId && (
+                  <button type="button" onClick={resetForm} className="text-sm text-gray-500 hover:text-brand-blue">
+                    Cancel
+                  </button>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingTreatment ? "Edit treatment" : "Add treatment"}</DialogTitle>
-            <DialogDescription>Update service details, durations and pricing.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <div>
-              <Label htmlFor="treatment-name">Name</Label>
-              <Input id="treatment-name" value={formData.name} onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))} className="mt-2" />
-            </div>
-            <div>
-              <Label htmlFor="treatment-description">Description</Label>
-              <Textarea id="treatment-description" value={formData.description} onChange={(event) => setFormData((current) => ({ ...current, description: event.target.value }))} className="mt-2 min-h-[120px]" />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label htmlFor="treatment-durations">Durations</Label>
-                <Input id="treatment-durations" value={formData.durations} onChange={(event) => setFormData((current) => ({ ...current, durations: event.target.value }))} className="mt-2" placeholder="30,60,90" />
+                <label className="block text-sm font-semibold text-brand-blue mb-1">Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                />
               </div>
+
               <div>
-                <Label htmlFor="treatment-pricing-model">Pricing model</Label>
-                <Select id="treatment-pricing-model" value={formData.pricingModel} onChange={(event) => setFormData((current) => ({ ...current, pricingModel: event.target.value }))} className="mt-2">
-                  <option value="per30min">Per 30 minutes</option>
-                  <option value="fixed">Fixed</option>
-                </Select>
+                <label className="block text-sm font-semibold text-brand-blue mb-1">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                  rows={4}
+                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                />
               </div>
-              <div>
-                <Label htmlFor="treatment-price">Base price</Label>
-                <Input id="treatment-price" type="number" value={formData.price} onChange={(event) => setFormData((current) => ({ ...current, price: event.target.value }))} className="mt-2" />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <label className="block text-sm font-semibold text-brand-blue">Durations & prices</label>
+                  <button type="button" onClick={addDuration} className="text-sm font-semibold text-brand-blue hover:text-brand-gold">
+                    + Add row
+                  </button>
+                </div>
+                {form.durations.map((duration, index) => (
+                  <div key={`${index}-${duration.mins}-${duration.price}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={duration.mins}
+                      onChange={(e) => updateDuration(index, "mins", Number(e.target.value))}
+                      className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+                      placeholder="Minutes"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      value={duration.price}
+                      onChange={(e) => updateDuration(index, "price", Number(e.target.value))}
+                      className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+                      placeholder="Price"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeDuration(index)}
+                      disabled={form.durations.length === 1}
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:border-red-300 hover:text-red-600 disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
               </div>
-              <div>
-                <Label htmlFor="treatment-price90">90 minute price</Label>
-                <Input id="treatment-price90" type="number" value={formData.price90} onChange={(event) => setFormData((current) => ({ ...current, price90: event.target.value }))} className="mt-2" />
-              </div>
-              <div>
-                <Label htmlFor="treatment-price120">120 minute price</Label>
-                <Input id="treatment-price120" type="number" value={formData.price120} onChange={(event) => setFormData((current) => ({ ...current, price120: event.target.value }))} className="mt-2" />
-              </div>
-              <div className="flex items-end">
-                <label className="inline-flex items-center gap-3 text-sm text-gray-300">
-                  <input type="checkbox" checked={formData.active} onChange={(event) => setFormData((current) => ({ ...current, active: event.target.checked }))} />
-                  Active treatment
-                </label>
-              </div>
+
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.checked }))}
+                  className="h-4 w-4 rounded border-gray-300 accent-brand-gold"
+                />
+                Active treatment
+              </label>
+
+              {treatmentError && <p className="text-sm text-red-600">{treatmentError}</p>}
+
+              <button type="submit" disabled={savingTreatment} className="w-full bg-brand-blue text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-50">
+                {savingTreatment ? "Saving…" : editingTreatmentId ? "Update treatment" : "Create treatment"}
+              </button>
+            </form>
+
+            <div className="space-y-4">
+              <h2 className="text-lg font-bold text-brand-blue">{treatments.length} Treatment(s)</h2>
+              {treatments.map((treatment) => (
+                <div key={treatment.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-bold text-brand-blue">{treatment.name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${treatment.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                        {treatment.active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">{treatment.description}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {treatment.durations.map((duration) => (
+                        <span key={`${treatment.id}-${duration.mins}`} className="text-xs bg-brand-blue/5 text-brand-blue rounded-full px-2 py-1">
+                          {duration.mins}m · £{duration.price}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(treatment)}
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void toggleTreatmentActive(treatment)}
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
+                    >
+                      {treatment.active ? "Mark inactive" : "Mark active"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void deleteTreatment(treatment.id)}
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveTreatment}>Save treatment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={Boolean(deleteId)} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete treatment?</AlertDialogTitle>
-            <AlertDialogDescription>This action removes the treatment from the website and admin list.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="secondary" onClick={() => setDeleteId(null)}>Keep treatment</Button>
-            <Button variant="destructive" onClick={deleteTreatment}>Delete</Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,28 +1,26 @@
-import { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
+import { NextResponse } from "next/server";
 
-import {
-  createAdminAuthResponse,
-  isAuthorizedAdminRequest,
-  isValidAdminPassword,
-  unauthorizedAdminResponse,
-} from "@/lib/admin-auth";
-
-export async function GET(request: NextRequest) {
-  if (isAuthorizedAdminRequest(request)) {
-    return Response.json({ success: true });
+function safeCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
   }
-
-  return unauthorizedAdminResponse();
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { password } = await req.json();
-    if (typeof password === "string" && isValidAdminPassword(password)) {
-      return createAdminAuthResponse();
+    const { password } = await request.json();
+    const configuredPassword = process.env.ADMIN_PASSWORD;
+    if (configuredPassword && safeCompare(String(password ?? ""), configuredPassword)) {
+      return NextResponse.json({ ok: true });
     }
-    return Response.json({ success: false }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   } catch {
-    return Response.json({ success: false, error: "Invalid request body." }, { status: 400 });
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
 }

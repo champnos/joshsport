@@ -1,6 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-
 import type { Treatment } from "@/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -15,12 +14,7 @@ export function formatCurrency(value: number) {
   }).format(value);
 }
 
-export function getTreatmentPrice(treatment: Treatment, duration: number) {
-  if (treatment.pricingModel === "per30min") {
-    return (duration / 30) * treatment.price;
-  }
-
-  if (duration === 90 && treatment.price90) return treatment.price90;
-  if (duration === 120 && treatment.price120) return treatment.price120;
-  return treatment.price;
+export function getTreatmentPrice(treatment: Treatment, durationMins: number): number {
+  const match = treatment.durations.find((d) => d.mins === durationMins);
+  return match?.price ?? 0;
 }

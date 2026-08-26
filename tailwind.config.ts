@@ -1,5 +1,4 @@
 import type { Config } from "tailwindcss";
-
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -11,15 +10,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        "brand-blue": "#012255",
+        "brand-gold": "#d4a62d",
         background: "rgb(var(--background) / <alpha-value>)",
         foreground: "rgb(var(--foreground) / <alpha-value>)",
         card: "rgb(var(--card) / <alpha-value>)",
         muted: "rgb(var(--muted) / <alpha-value>)",
-        accent: "rgb(var(--accent) / <alpha-value>)",
       },
     },
   },
   plugins: [],
 };
-
 export default config;
