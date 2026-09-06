@@ -10,16 +10,21 @@ function startOfDay(date: Date) {
 
 async function getSettings() {
   try {
-    const { data, error } = await supabase
+    const { data: bookingData } = await supabase
       .from("settings")
-      .select("*")
+      .select("value")
+      .eq("key", "booking_window_days")
       .single();
 
-    if (error && error.code !== "PGRST116") throw error;
+    const { data: bufferData } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "buffer_mins_after_booking")
+      .single();
 
     return {
-      booking_window_days: data?.booking_window_days || 30,
-      buffer_mins_after_booking: data?.buffer_mins_after_booking || 30,
+      booking_window_days: bookingData ? parseInt(bookingData.value) : 30,
+      buffer_mins_after_booking: bufferData ? parseInt(bufferData.value) : 30,
     };
   } catch {
     return {
