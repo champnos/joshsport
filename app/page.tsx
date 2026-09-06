@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Activity, ShieldCheck, TimerReset, Waves } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const benefits = [
   {
@@ -51,20 +54,25 @@ const featuredTreatments = [
   },
 ];
 
-async function getHeroImage() {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/hero-image`, {
-      next: { revalidate: 3600 },
-    });
-    const data = await res.json();
-    return data.image_url || null;
-  } catch {
-    return null;
-  }
-}
+export default function Home() {
+  const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export default async function Home() {
-  const heroImage = await getHeroImage();
+  useEffect(() => {
+    const fetchHeroImage = async () => {
+      try {
+        const res = await fetch("/api/hero-image");
+        const data = await res.json();
+        setHeroImage(data.image_url || null);
+      } catch {
+        setHeroImage(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHeroImage();
+  }, []);
 
   return (
     <div>
@@ -110,7 +118,9 @@ export default async function Home() {
       <section className="bg-white py-20 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
           <div className="flex min-h-[400px] items-center justify-center rounded-2xl border-4 border-brand-gold/40 bg-gray-50 text-center text-gray-400 text-sm shadow-sm overflow-hidden">
-            {heroImage ? (
+            {loading ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : heroImage ? (
               <img src={heroImage} alt="Josh Maggs" className="w-full h-full object-cover" />
             ) : (
               <div className="text-center">
