@@ -17,11 +17,6 @@ interface TreatmentOption {
   durations: DurationOption[];
 }
 
-interface MedicalCondition {
-  id: string;
-  name: string;
-}
-
 const MEDICAL_CONDITIONS_FALLBACK = [
   "Heart conditions",
   "High or low blood pressure",
