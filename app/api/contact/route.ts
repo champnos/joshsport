@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
@@ -11,15 +14,26 @@ export async function POST(request: Request) {
     if (!trimmedName || !trimmedEmail || !trimmedMessage) {
       return NextResponse.json({ error: "Name, email and message are required." }, { status: 400 });
     }
-    // TODO: Replace with email sending (e.g. Resend, SendGrid, or Nodemailer)
-    // e.g. send to hello@maggsymassagetherapy.com
-    console.log("Contact form submission received", {
-      hasPhone: Boolean(trimmedPhone),
-      messageLength: trimmedMessage.length,
-      submittedAt: new Date().toISOString(),
+
+    // Send email via Resend
+    await resend.emails.send({
+      from: "contact@maggsymassagetherapy.com",
+      to: "contact@maggsymassagetherapy.com",
+      replyTo: trimmedEmail,
+      subject: `New Contact Form Submission from ${trimmedName}`,
+      html: `
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${trimmedName}</p>
+        <p><strong>Email:</strong> ${trimmedEmail}</p>
+        ${trimmedPhone ? `<p><strong>Phone:</strong> ${trimmedPhone}</p>` : ""}
+        <p><strong>Message:</strong></p>
+        <p>${trimmedMessage.replace(/\n/g, "<br>")}</p>
+      `,
     });
+
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Contact form error:", error);
     return NextResponse.json({ error: "Unable to send message." }, { status: 500 });
   }
 }
