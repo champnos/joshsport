@@ -19,7 +19,7 @@ export default function Footer() {
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-widest text-brand-gold">Contact</h3>
           <ul className="mt-3 space-y-2 text-sm text-white/70">
-            <li><a href="mailto:hello@maggsymassagetherapy.com" className="hover:text-brand-gold transition-colors">hello@maggsymassagetherapy.com</a></li>
+            <li><a href="mailto:contact@maggsymassagetherapy.com" className="hover:text-brand-gold transition-colors">contact@maggsymassagetherapy.com</a></li>
             <li>Bristol & Bath</li>
           </ul>
         </div>
