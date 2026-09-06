@@ -381,7 +381,7 @@ function BookingInner() {
               </button>
               <button
                 onClick={() => setStep(4)}
-                disabled={!clientName || !clientPhone || !clientAddress || !clientPostcode}
+                disabled={!clientName || !clientDob || !clientPhone || !clientAddress || !clientPostcode}
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next <ChevronRight className="h-4 w-4" />
