@@ -32,6 +32,7 @@ export default function AdminPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingTreatments, setLoadingTreatments] = useState(false);
   const [error, setError] = useState("");
   const [savingTreatment, setSavingTreatment] = useState(false);
   const [treatmentError, setTreatmentError] = useState("");
@@ -43,39 +44,44 @@ export default function AdminPage() {
     [password],
   );
 
-  const loadData = useCallback(async () => {
+  const loadBookings = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [bRes, tRes] = await Promise.all([
-        fetch("/api/bookings", { headers }),
-        fetch("/api/treatments"),
-      ]);
-
-      if (!bRes.ok) {
-        const bookingError = await bRes.json().catch(() => null);
+      const res = await fetch("/api/bookings", { headers });
+      if (!res.ok) {
+        const bookingError = await res.json().catch(() => null);
         throw new Error(bookingError?.error ?? "Failed to load bookings.");
       }
-
-      if (!tRes.ok) {
-        const treatmentError = await tRes.json().catch(() => null);
-        throw new Error(treatmentError?.error ?? "Failed to load treatments.");
-      }
-
-      setBookings(await bRes.json());
-      setTreatments(await tRes.json());
+      setBookings(await res.json());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data.");
+      setError(err instanceof Error ? err.message : "Failed to load bookings.");
     } finally {
       setLoading(false);
     }
   }, [headers]);
 
+  const loadTreatments = useCallback(async () => {
+    setLoadingTreatments(true);
+    try {
+      const res = await fetch("/api/treatments");
+      if (!res.ok) {
+        throw new Error("Failed to load treatments.");
+      }
+      setTreatments(await res.json());
+    } catch {
+      setTreatments([]);
+    } finally {
+      setLoadingTreatments(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthed) {
-      void loadData();
+      void loadBookings();
+      void loadTreatments();
     }
-  }, [isAuthed, loadData]);
+  }, [isAuthed, loadBookings, loadTreatments]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -249,196 +255,204 @@ export default function AdminPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2 rounded-lg font-semibold text-sm capitalize transition-colors ${activeTab === tab ? "bg-brand-blue text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-brand-blue"}`}
+              className={`px-5 py-2 rounded-lg font-semibold text-sm capitalize transition-colors ${activeTab === tab ? "bg-brand-blue text-white" : "bg-white text-gray-600 border border-gray-200"}`}
             >
               {tab}
             </button>
           ))}
         </div>
 
-        {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
-        {loading && <p className="text-gray-500 text-sm">Loading…</p>}
-
         {activeTab === "bookings" && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-brand-blue">{bookings.length} Booking(s)</h2>
-            {bookings.length === 0 && !loading && <p className="text-gray-500 text-sm">No bookings yet.</p>}
-            {bookings.map((b) => (
-              <div key={b.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="font-bold text-brand-blue">{b.client_name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${getStatusColor(b.status)}`}>{b.status}</span>
+          <>
+            {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
+            {loading && <p className="text-gray-500 text-sm">Loading bookings…</p>}
+            {!loading && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-brand-blue">{bookings.length} Booking(s)</h2>
+                {bookings.length === 0 && <p className="text-gray-500 text-sm">No bookings yet.</p>}
+                {bookings.map((b) => (
+                  <div key={b.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-bold text-brand-blue">{b.client_name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${getStatusColor(b.status)}`}>{b.status}</span>
+                        </div>
+                        <p className="text-sm text-gray-600">{b.treatment_name} · {b.duration_mins} mins</p>
+                        <p className="text-sm text-gray-600">{b.date} at {b.start_time}</p>
+                        <p className="text-sm text-gray-500 mt-1">{b.client_address}, {b.client_postcode}</p>
+                        <p className="text-sm text-gray-500">{b.client_phone}</p>
+                        {b.medical_conditions.length > 0 && !b.medical_conditions.includes("None of the above") && (
+                          <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 mt-2">
+                            ⚠ Medical: {b.medical_conditions.join(", ")}
+                            {b.medical_notes && ` — ${b.medical_notes}`}
+                          </p>
+                        )}
+                        {b.injury_recent && (
+                          <p className="text-xs text-red-700 bg-red-50 rounded px-2 py-1 mt-1">Recent injury: {b.injury_recent_notes}</p>
+                        )}
+                        {b.injury_previous && (
+                          <p className="text-xs text-orange-700 bg-orange-50 rounded px-2 py-1 mt-1">Previous injuries: {b.injury_previous_notes}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        {(["pending", "confirmed", "cancelled"] as const).map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => void updateBookingStatus(b.id, status)}
+                            disabled={b.status === status}
+                            className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors ${b.status === status ? "bg-brand-blue text-white border-brand-blue" : "border-gray-200"}`}
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600">{b.treatment_name} · {b.duration_mins} mins</p>
-                    <p className="text-sm text-gray-600">{b.date} at {b.start_time}</p>
-                    <p className="text-sm text-gray-500 mt-1">{b.client_address}, {b.client_postcode}</p>
-                    <p className="text-sm text-gray-500">{b.client_phone}</p>
-                    {b.medical_conditions.length > 0 && !b.medical_conditions.includes("None of the above") && (
-                      <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 mt-2">
-                        ⚠ Medical: {b.medical_conditions.join(", ")}
-                        {b.medical_notes && ` — ${b.medical_notes}`}
-                      </p>
-                    )}
-                    {b.injury_recent && (
-                      <p className="text-xs text-red-700 bg-red-50 rounded px-2 py-1 mt-1">Recent injury: {b.injury_recent_notes}</p>
-                    )}
-                    {b.injury_previous && (
-                      <p className="text-xs text-orange-700 bg-orange-50 rounded px-2 py-1 mt-1">Previous injuries: {b.injury_previous_notes}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {(["pending", "confirmed", "cancelled"] as const).map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => void updateBookingStatus(b.id, status)}
-                        disabled={b.status === status}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors ${b.status === status ? "bg-brand-blue text-white border-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === "treatments" && (
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,380px)_1fr]">
-            <form onSubmit={saveTreatment} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4 h-fit">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-lg font-bold text-brand-blue">{editingTreatmentId ? "Edit treatment" : "Add treatment"}</h2>
-                {editingTreatmentId && (
-                  <button type="button" onClick={resetForm} className="text-sm text-gray-500 hover:text-brand-blue">
-                    Cancel
-                  </button>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-brand-blue mb-1">Name</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-brand-blue mb-1">Description</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  rows={4}
-                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-4">
-                  <label className="block text-sm font-semibold text-brand-blue">Durations & prices</label>
-                  <button type="button" onClick={addDuration} className="text-sm font-semibold text-brand-blue hover:text-brand-gold">
-                    + Add row
-                  </button>
-                </div>
-                {form.durations.map((duration, index) => (
-                  <div key={`${index}-${duration.mins}-${duration.price}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      value={duration.mins}
-                      onChange={(e) => updateDuration(index, "mins", Number(e.target.value))}
-                      className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
-                      placeholder="Minutes"
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      value={duration.price}
-                      onChange={(e) => updateDuration(index, "price", Number(e.target.value))}
-                      className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
-                      placeholder="Price"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeDuration(index)}
-                      disabled={form.durations.length === 1}
-                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:border-red-300 hover:text-red-600 disabled:opacity-40"
-                    >
-                      Remove
-                    </button>
                   </div>
                 ))}
               </div>
+            )}
+          </>
+        )}
 
-              <label className="flex items-center gap-3 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.checked }))}
-                  className="h-4 w-4 rounded border-gray-300 accent-brand-gold"
-                />
-                Active treatment
-              </label>
+        {activeTab === "treatments" && (
+          <>
+            {loadingTreatments && <p className="text-gray-500 text-sm">Loading treatments…</p>}
+            {!loadingTreatments && (
+              <div className="grid gap-8 lg:grid-cols-[minmax(0,380px)_1fr]">
+                <form onSubmit={saveTreatment} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4 h-fit">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-lg font-bold text-brand-blue">{editingTreatmentId ? "Edit treatment" : "Add treatment"}</h2>
+                    {editingTreatmentId && (
+                      <button type="button" onClick={resetForm} className="text-sm text-gray-500 hover:text-brand-blue">
+                        Cancel
+                      </button>
+                    )}
+                  </div>
 
-              {treatmentError && <p className="text-sm text-red-600">{treatmentError}</p>}
-
-              <button type="submit" disabled={savingTreatment} className="w-full bg-brand-blue text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-50">
-                {savingTreatment ? "Saving…" : editingTreatmentId ? "Update treatment" : "Create treatment"}
-              </button>
-            </form>
-
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold text-brand-blue">{treatments.length} Treatment(s)</h2>
-              {treatments.map((treatment) => (
-                <div key={treatment.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-bold text-brand-blue">{treatment.name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${treatment.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                        {treatment.active ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">{treatment.description}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {treatment.durations.map((duration) => (
-                        <span key={`${treatment.id}-${duration.mins}`} className="text-xs bg-brand-blue/5 text-brand-blue rounded-full px-2 py-1">
-                          {duration.mins}m · £{duration.price}
-                        </span>
-                      ))}
-                    </div>
+                    <label className="block text-sm font-semibold text-brand-blue mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                      className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                    />
                   </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(treatment)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void toggleTreatmentActive(treatment)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
-                    >
-                      {treatment.active ? "Mark inactive" : "Mark active"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void deleteTreatment(treatment.id)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-brand-blue mb-1">Description</label>
+                    <textarea
+                      value={form.description}
+                      onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                      rows={4}
+                      className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                    />
                   </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <label className="block text-sm font-semibold text-brand-blue">Durations & prices</label>
+                      <button type="button" onClick={addDuration} className="text-sm font-semibold text-brand-blue hover:text-brand-gold">
+                        + Add row
+                      </button>
+                    </div>
+                    {form.durations.map((duration, index) => (
+                      <div key={`${index}-${duration.mins}-${duration.price}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={duration.mins}
+                          onChange={(e) => updateDuration(index, "mins", Number(e.target.value))}
+                          className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+                          placeholder="Minutes"
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          value={duration.price}
+                          onChange={(e) => updateDuration(index, "price", Number(e.target.value))}
+                          className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+                          placeholder="Price"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeDuration(index)}
+                          disabled={form.durations.length === 1}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:border-red-300 hover:text-red-600 disabled:opacity-40"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <label className="flex items-center gap-3 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={form.active}
+                      onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 accent-brand-gold"
+                    />
+                    Active treatment
+                  </label>
+
+                  {treatmentError && <p className="text-sm text-red-600">{treatmentError}</p>}
+
+                  <button type="submit" disabled={savingTreatment} className="w-full bg-brand-blue text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-50">
+                    {savingTreatment ? "Saving…" : editingTreatmentId ? "Update treatment" : "Create treatment"}
+                  </button>
+                </form>
+
+                <div className="space-y-4">
+                  <h2 className="text-lg font-bold text-brand-blue">{treatments.length} Treatment(s)</h2>
+                  {treatments.map((treatment) => (
+                    <div key={treatment.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-bold text-brand-blue">{treatment.name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${treatment.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                            {treatment.active ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2">{treatment.description}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {treatment.durations.map((duration) => (
+                            <span key={`${treatment.id}-${duration.mins}`} className="text-xs bg-brand-blue/5 text-brand-blue rounded-full px-2 py-1">
+                              {duration.mins}m · £{duration.price}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(treatment)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleTreatmentActive(treatment)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
+                        >
+                          {treatment.active ? "Mark inactive" : "Mark active"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteTreatment(treatment.id)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
