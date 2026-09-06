@@ -33,10 +33,12 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     try {
+      const password = localStorage.getItem("adminToken") || "";
+
       // Fetch availability
       const availRes = await fetch("/api/availability?admin=true", {
         headers: {
-          "X-Admin-Token": localStorage.getItem("adminToken") || "",
+          "x-admin-password": password,
         },
       });
       if (availRes.ok) {
@@ -54,7 +56,7 @@ export default function SettingsPage() {
       // Fetch booking settings
       const settingsRes = await fetch("/api/admin/settings", {
         headers: {
-          "X-Admin-Token": localStorage.getItem("adminToken") || "",
+          "x-admin-password": password,
         },
       });
       if (settingsRes.ok) {
@@ -95,13 +97,15 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const password = localStorage.getItem("adminToken") || "";
+
       // Save availability
       for (const avail of availability) {
         const res = await fetch("/api/availability", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Admin-Token": localStorage.getItem("adminToken") || "",
+            "x-admin-password": password,
           },
           body: JSON.stringify(avail),
         });
@@ -113,7 +117,7 @@ export default function SettingsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Token": localStorage.getItem("adminToken") || "",
+          "x-admin-password": password,
         },
         body: JSON.stringify(settings),
       });
