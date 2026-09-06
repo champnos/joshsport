@@ -8,6 +8,27 @@ function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+async function getSettings() {
+  try {
+    const { data, error } = await supabase
+      .from("settings")
+      .select("*")
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+
+    return {
+      booking_window_days: data?.booking_window_days || 30,
+      buffer_mins_after_booking: data?.buffer_mins_after_booking || 30,
+    };
+  } catch {
+    return {
+      booking_window_days: 30,
+      buffer_mins_after_booking: 30,
+    };
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -17,6 +38,8 @@ export async function GET(request: NextRequest) {
 
     // Admin endpoint: fetch working days/hours
     if (admin === "true") {
+      if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
+
       const { data, error } = await supabase
         .from("availability")
         .select("*")
@@ -31,23 +54,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Date and duration are required." }, { status: 400 });
     }
 
+    // Get settings for booking window and buffer time
+    const settings = await getSettings();
+    const bookingWindowDays = settings.booking_window_days;
+    const bufferMins = settings.buffer_mins_after_booking;
+
+    // Validate date is within booking window
     const today = startOfDay(new Date());
-    const twoWeeksFromNow = startOfDay(new Date());
-    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+    const maxBookingDate = startOfDay(new Date());
+    maxBookingDate.setDate(maxBookingDate.getDate() + bookingWindowDays);
     const requestedDate = startOfDay(new Date(date));
-    if (requestedDate < today || requestedDate > twoWeeksFromNow) {
+
+    if (requestedDate < today || requestedDate > maxBookingDate) {
       return NextResponse.json({ slots: [] });
     }
 
+    // Get day of week (0 = Monday, 6 = Sunday)
+    const dayOfWeek = requestedDate.getDay() === 0 ? 6 : requestedDate.getDay() - 1;
+
+    // Check if therapist is working that day
+    const { data: availabilityData, error: availError } = await supabase
+      .from("availability")
+      .select("*")
+      .eq("day_of_week", dayOfWeek)
+      .single();
+
+    if (availError && availError.code !== "PGRST116") throw availError;
+
+    if (!availabilityData?.is_working) {
+      return NextResponse.json({ slots: [] });
+    }
+
+    // Get existing bookings for that day
     const { data: existingBookings } = await supabase
       .from("bookings")
       .select("start_time, duration_mins")
       .eq("date", date)
       .neq("status", "cancelled");
 
-    const slots = getAvailableSlots(date, duration, existingBookings ?? []);
+    const slots = getAvailableSlots(date, duration, existingBookings ?? [], bufferMins);
     return NextResponse.json({ slots });
-  } catch {
+  } catch (err) {
+    console.error("Failed to fetch availability:", err);
     return NextResponse.json({ error: "Unable to load availability." }, { status: 500 });
   }
 }
