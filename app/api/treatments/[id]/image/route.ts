@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     
     // Upload to Supabase storage
     const fileName = `${params.id}-${Date.now()}-${file.name}`;
-    const { data, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("treatment-images")
       .upload(fileName, buffer, { contentType: file.type });
 
