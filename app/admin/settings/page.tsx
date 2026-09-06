@@ -3,28 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-interface Availability {
-  day_of_week: number;
-  is_working: boolean;
-  start_time: string | null;
-  end_time: string | null;
-}
-
 interface Settings {
   booking_window_days: number;
   buffer_mins_after_booking: number;
 }
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
 export default function SettingsPage() {
-  const [availability, setAvailability] = useState<Availability[]>([]);
   const [settings, setSettings] = useState<Settings>({
     booking_window_days: 30,
     buffer_mins_after_booking: 30,
   });
+  const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const router = useRouter();
 
   useEffect(() => {
@@ -34,24 +26,6 @@ export default function SettingsPage() {
   const fetchData = async () => {
     try {
       const password = localStorage.getItem("adminToken") || "";
-
-      // Fetch availability
-      const availRes = await fetch("/api/availability?admin=true", {
-        headers: {
-          "x-admin-password": password,
-        },
-      });
-      if (availRes.ok) {
-        const availData = await availRes.json();
-        const fullWeek: Availability[] = [];
-        for (let i = 0; i < 7; i++) {
-          const existing = availData.find((a: Availability) => a.day_of_week === i);
-          fullWeek.push(
-            existing || { day_of_week: i, is_working: false, start_time: null, end_time: null }
-          );
-        }
-        setAvailability(fullWeek);
-      }
 
       // Fetch booking settings
       const settingsRes = await fetch("/api/admin/settings", {
@@ -63,6 +37,17 @@ export default function SettingsPage() {
         const settingsData = await settingsRes.json();
         setSettings(settingsData);
       }
+
+      // Fetch working dates
+      const datesRes = await fetch("/api/working-dates", {
+        headers: {
+          "x-admin-password": password,
+        },
+      });
+      if (datesRes.ok) {
+        const datesData = await datesRes.json();
+        setWorkingDates(new Set(datesData.dates || []));
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -70,47 +55,24 @@ export default function SettingsPage() {
     }
   };
 
-  const handleToggle = (dayIndex: number) => {
-    setAvailability((prev) =>
-      prev.map((a) =>
-        a.day_of_week === dayIndex
-          ? { ...a, is_working: !a.is_working }
-          : a
-      )
-    );
-  };
-
-  const handleTimeChange = (dayIndex: number, field: "start_time" | "end_time", value: string) => {
-    setAvailability((prev) =>
-      prev.map((a) =>
-        a.day_of_week === dayIndex
-          ? { ...a, [field]: value }
-          : a
-      )
-    );
-  };
-
   const handleSettingChange = (field: keyof Settings, value: number) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleDate = (dateStr: string) => {
+    const newDates = new Set(workingDates);
+    if (newDates.has(dateStr)) {
+      newDates.delete(dateStr);
+    } else {
+      newDates.add(dateStr);
+    }
+    setWorkingDates(newDates);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const password = localStorage.getItem("adminToken") || "";
-
-      // Save availability
-      for (const avail of availability) {
-        const res = await fetch("/api/availability", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-admin-password": password,
-          },
-          body: JSON.stringify(avail),
-        });
-        if (!res.ok) throw new Error("Failed to save availability");
-      }
 
       // Save booking settings
       const settingsRes = await fetch("/api/admin/settings", {
@@ -123,6 +85,17 @@ export default function SettingsPage() {
       });
       if (!settingsRes.ok) throw new Error("Failed to save settings");
 
+      // Save working dates
+      const datesRes = await fetch("/api/working-dates", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": password,
+        },
+        body: JSON.stringify({ dates: Array.from(workingDates) }),
+      });
+      if (!datesRes.ok) throw new Error("Failed to save working dates");
+
       alert("Settings updated successfully!");
       router.refresh();
     } catch (err) {
@@ -133,63 +106,99 @@ export default function SettingsPage() {
     }
   };
 
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const formatDate = (year: number, month: number, day: number) => {
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  };
+
+  const renderCalendar = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+
+    // Empty cells for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="p-2"></div>);
+    }
+
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = formatDate(year, month, day);
+      const isWorking = workingDates.has(dateStr);
+      days.push(
+        <button
+          key={day}
+          onClick={() => toggleDate(dateStr)}
+          className={`p-3 text-center rounded-lg font-medium text-sm transition-colors ${
+            isWorking
+              ? "bg-brand-gold text-brand-blue"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          {day}
+        </button>
+      );
+    }
+
+    return days;
+  };
+
+  const monthName = currentMonth.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
   if (loading) return <p className="text-center py-10 text-gray-500">Loading...</p>;
 
   return (
     <div className="max-w-4xl space-y-8">
-      {/* Working Hours Section */}
+      {/* Working Dates Calendar */}
       <div>
-        <h2 className="text-2xl font-bold text-brand-blue mb-2">Working Hours</h2>
-        <p className="text-gray-600 text-sm mb-6">Set your availability for each day of the week.</p>
+        <h2 className="text-2xl font-bold text-brand-blue mb-2">Working Dates</h2>
+        <p className="text-gray-600 text-sm mb-6">Select the dates you're available to see clients.</p>
 
-        <div className="space-y-4">
-          {availability.map((avail) => (
-            <div key={avail.day_of_week} className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between gap-4">
-                <label className="flex items-center gap-3 flex-1">
-                  <input
-                    type="checkbox"
-                    checked={avail.is_working}
-                    onChange={() => handleToggle(avail.day_of_week)}
-                    className="w-5 h-5 rounded border-gray-300 cursor-pointer"
-                  />
-                  <span className="font-medium text-brand-blue w-24">{DAYS[avail.day_of_week]}</span>
-                </label>
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              ← Previous
+            </button>
+            <h3 className="text-lg font-bold text-brand-blue">{monthName}</h3>
+            <button
+              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              Next →
+            </button>
+          </div>
 
-                {avail.is_working && (
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Start Time</label>
-                      <input
-                        type="time"
-                        value={avail.start_time || "09:00"}
-                        onChange={(e) =>
-                          handleTimeChange(avail.day_of_week, "start_time", e.target.value)
-                        }
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">End Time</label>
-                      <input
-                        type="time"
-                        value={avail.end_time || "17:00"}
-                        onChange={(e) =>
-                          handleTimeChange(avail.day_of_week, "end_time", e.target.value)
-                        }
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {!avail.is_working && (
-                  <span className="text-gray-500 text-sm italic">Not working</span>
-                )}
+          {/* Day headers */}
+          <div className="grid grid-cols-7 gap-2 mb-2">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="p-2 text-center text-xs font-bold text-gray-500">
+                {day}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-2">{renderCalendar()}</div>
         </div>
+
+        <p className="text-xs text-gray-500 mt-2">
+          {workingDates.size} date(s) selected
+        </p>
       </div>
 
       {/* Booking Settings Section */}
