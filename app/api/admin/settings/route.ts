@@ -5,13 +5,13 @@ import type { NextRequest } from "next/server";
 
 export async function GET() {
   try {
-    const { data: bookingData, error: bookingError } = await supabase
+    const { data: bookingData } = await supabase
       .from("settings")
       .select("value")
       .eq("key", "booking_window_days")
       .single();
 
-    const { data: bufferData, error: bufferError } = await supabase
+    const { data: bufferData } = await supabase
       .from("settings")
       .select("value")
       .eq("key", "buffer_mins_after_booking")
