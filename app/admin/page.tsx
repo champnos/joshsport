@@ -301,7 +301,7 @@ export default function AdminPage() {
                             key={status}
                             onClick={() => void updateBookingStatus(b.id, status)}
                             disabled={b.status === status}
-                            className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors ${b.status === status ? "bg-brand-blue text-white border-brand-blue" : "border-gray-200"}`}
+                            className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors ${b.status === status ? "bg-brand-blue text-white border-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"}`}
                           >
                             {status}
                           </button>
@@ -428,14 +428,14 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() => startEdit(treatment)}
-                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
+                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => void toggleTreatmentActive(treatment)}
-                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue"
+                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
                         >
                           {treatment.active ? "Mark inactive" : "Mark active"}
                         </button>
