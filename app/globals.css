@@ -34,12 +34,17 @@ body {
   .text-pretty { text-wrap: pretty; }
 }
 
-/* CRITICAL: Force date/tel/text inputs to show dark text - must be outside @layer */
+/* CRITICAL: Force ALL text inputs to show dark text - outside @layer with !important */
 input[type="date"],
 input[type="tel"],
-input[type="text"] {
+input[type="text"],
+textarea {
   color: #1f2937 !important;
   color-scheme: light !important;
+}
+
+textarea::placeholder {
+  color: #9ca3af !important;
 }
 
 input[type="date"]::-webkit-datetime-edit {
