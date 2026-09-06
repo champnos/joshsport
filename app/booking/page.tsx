@@ -220,6 +220,15 @@ function BookingInner() {
     return d.toISOString().split("T")[0];
   };
 
+  // Validate date on change
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedDate = e.target.value;
+    if (isDateSelectable(selectedDate)) {
+      setDate(selectedDate);
+    }
+    // If not selectable, don't update the date
+  };
+
   if (success) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
@@ -328,14 +337,11 @@ function BookingInner() {
                 value={date}
                 min={getMinDate()}
                 max={getMaxDate()}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={handleDateChange}
                 style={inputStyle}
-                className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-brand-blue focus:outline-none w-full sm:w-auto"
+                className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-brand-blue focus:outline-none w-full sm:w-auto disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <p className="mt-1 text-xs text-gray-400">Availability shown up to {bookingWindowDays} days in advance</p>
-              {date && !isDateSelectable(date) && (
-                <p className="mt-2 text-xs text-red-600">This date is not available. Please select a different date.</p>
-              )}
             </div>
 
             {date && isDateSelectable(date) && (
@@ -367,7 +373,7 @@ function BookingInner() {
               </button>
               <button
                 onClick={() => setStep(3)}
-                disabled={!date || !startTime || !isDateSelectable(date)}
+                disabled={!date || !startTime}
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next <ChevronRight className="h-4 w-4" />
