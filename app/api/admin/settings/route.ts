@@ -5,17 +5,22 @@ import type { NextRequest } from "next/server";
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
+    const { data: bookingData } = await supabase
       .from("settings")
-      .select("*")
+      .select("value")
+      .eq("key", "booking_window_days")
       .single();
 
-    if (error && error.code !== "PGRST116") throw error;
+    const { data: bufferData } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "buffer_mins_after_booking")
+      .single();
 
     return NextResponse.json(
-      data || {
-        booking_window_days: 30,
-        buffer_mins_after_booking: 30,
+      {
+        booking_window_days: bookingData ? parseInt(bookingData.value) : 30,
+        buffer_mins_after_booking: bufferData ? parseInt(bufferData.value) : 30,
       },
       { status: 200 }
     );
@@ -42,19 +47,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    // Update or insert booking_window_days
+    await supabase
       .from("settings")
       .upsert({
-        id: 1,
+        key: "booking_window_days",
+        value: booking_window_days.toString(),
+      })
+      .eq("key", "booking_window_days");
+
+    // Update or insert buffer_mins_after_booking
+    await supabase
+      .from("settings")
+      .upsert({
+        key: "buffer_mins_after_booking",
+        value: buffer_mins_after_booking.toString(),
+      })
+      .eq("key", "buffer_mins_after_booking");
+
+    return NextResponse.json(
+      {
         booking_window_days,
         buffer_mins_after_booking,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json(data, { status: 200 });
+      },
+      { status: 200 }
+    );
   } catch (err) {
     console.error("Failed to update settings:", err);
     return NextResponse.json({ error: "Unable to update settings." }, { status: 500 });
