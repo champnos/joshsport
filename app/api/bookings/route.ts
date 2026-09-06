@@ -58,7 +58,10 @@ export async function POST(request: Request) {
     }
 
     if (!isValidPhone) {
-      return NextResponse.json({ error: "Phone number must be a valid phone format." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Phone number must contain 7-15 digits (optional leading +; spaces, hyphens, and parentheses allowed)." },
+        { status: 400 }
+      );
     }
 
     const { data: existingBookings } = await supabase
