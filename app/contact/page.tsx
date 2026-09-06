@@ -74,8 +74,8 @@ export default function ContactPage() {
     "w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none";
 
   return (
-    <div className="bg-gray-950 min-h-screen">
-      <section className="bg-gray-950 px-4 pb-20 pt-36 text-white sm:px-6 lg:px-8">
+    <div className="bg-white min-h-screen">
+      <section className="bg-brand-blue px-4 pb-20 pt-36 text-white sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl text-center">
           <h1 className="text-4xl font-bold sm:text-5xl">Get in Touch</h1>
           <p className="mt-4 text-lg text-white/80">Have a question or want to know more? Drop Josh a message.</p>
