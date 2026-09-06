@@ -358,20 +358,22 @@ export default function AdminPage() {
                       </button>
                     </div>
                     {form.durations.map((duration, index) => (
-                      <div key={`${index}-${duration.mins}-${duration.price}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                      <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                         <input
-                          type="number"
-                          min="1"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={duration.mins}
-                          onChange={(e) => updateDuration(index, "mins", Number(e.target.value))}
+                          onChange={(e) => updateDuration(index, "mins", Number(e.target.value) || 0)}
                           className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
                           placeholder="Minutes"
                         />
                         <input
-                          type="number"
-                          min="1"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={duration.price}
-                          onChange={(e) => updateDuration(index, "price", Number(e.target.value))}
+                          onChange={(e) => updateDuration(index, "price", Number(e.target.value) || 0)}
                           className="border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
                           placeholder="Price"
                         />
