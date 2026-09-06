@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Booking, Treatment, TreatmentDuration } from "@/lib/types";
 
 interface TreatmentFormState {
@@ -97,11 +98,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (isAuthed) {
+      localStorage.setItem("adminToken", password);
       void loadBookings();
       void loadTreatments();
       void loadHeroImage();
     }
-  }, [isAuthed, loadBookings, loadTreatments, loadHeroImage]);
+  }, [isAuthed, loadBookings, loadTreatments, loadHeroImage, password]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -621,37 +623,51 @@ export default function AdminPage() {
         )}
 
         {activeTab === "settings" && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm max-w-2xl">
-            <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Image</h2>
-            {heroError && <p className="text-sm text-red-600 mb-4">{heroError}</p>}
-            
-            {heroImage && (
-              <div className="mb-6 rounded-lg overflow-hidden w-full h-64 bg-gray-200">
-                <img src={heroImage} alt="Hero" className="w-full h-full object-cover" />
-              </div>
-            )}
-            
-            <div className="space-y-3">
-              <label className="block text-sm font-semibold text-brand-blue">Upload Image</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleHeroImageUpload}
-                disabled={uploadingHero}
-                className="w-full text-sm"
-              />
-              {uploadingHero && <p className="text-xs text-gray-500">Uploading...</p>}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Image</h2>
+              {heroError && <p className="text-sm text-red-600 mb-4">{heroError}</p>}
               
               {heroImage && (
-                <button
-                  type="button"
-                  onClick={handleDeleteHeroImage}
-                  disabled={deletingHero}
-                  className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  {deletingHero ? "Deleting..." : "Delete hero image"}
-                </button>
+                <div className="mb-6 rounded-lg overflow-hidden w-full h-64 bg-gray-200">
+                  <img src={heroImage} alt="Hero" className="w-full h-full object-cover" />
+                </div>
               )}
+              
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-brand-blue">Upload Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleHeroImageUpload}
+                  disabled={uploadingHero}
+                  className="w-full text-sm"
+                />
+                {uploadingHero && <p className="text-xs text-gray-500">Uploading...</p>}
+                
+                {heroImage && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteHeroImage}
+                    disabled={deletingHero}
+                    className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {deletingHero ? "Deleting..." : "Delete hero image"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <Link href="/admin/availability" className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-bold text-brand-blue mb-2">Working Hours</h3>
+                <p className="text-sm text-gray-600">Set your working days and hours</p>
+              </Link>
+
+              <Link href="/admin/settings" className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-bold text-brand-blue mb-2">Booking Settings</h3>
+                <p className="text-sm text-gray-600">Configure booking window and buffer time</p>
+              </Link>
             </div>
           </div>
         )}
