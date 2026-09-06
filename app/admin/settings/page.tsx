@@ -167,8 +167,8 @@ export default function SettingsPage() {
     <div className="max-w-4xl space-y-8">
       {/* Working Dates Calendar */}
       <div>
-        <h2 className="text-2xl font-bold text-brand-blue mb-2">Working Dates</h2>
-        <p className="text-gray-600 text-sm mb-6">Select the dates you're available to see clients.</p>
+        <h2 className="text-2xl font-bold text-brand-blue mb-2">Select Your Working Dates</h2>
+        <p className="text-gray-600 text-sm mb-6">Click on dates in the calendar to mark when you&apos;re available. This overrides day-of-week settings.</p>
 
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-6">
