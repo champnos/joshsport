@@ -79,6 +79,11 @@ function formatTime(t: string) {
 
 const STEPS = ["Treatment", "Date & Time", "Your Details", "Emergency Contact", "Medical History", "Injury History", "Confirm & Pay"];
 
+// Inline styles for dark text on inputs
+const inputStyle = {
+  color: "#1f2937 !important" as any,
+};
+
 function BookingInner() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
@@ -231,7 +236,7 @@ function BookingInner() {
         <div className="mx-auto max-w-3xl flex items-center gap-1 overflow-x-auto">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-1 shrink-0">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-100 text-gray-400"}`}>
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "[...]
                 {i + 1 < step ? "✓" : i + 1}
               </div>
               <span className={`text-xs hidden sm:block ${i + 1 === step ? "text-brand-blue font-semibold" : "text-gray-400"}`}>{s}</span>
@@ -272,7 +277,7 @@ function BookingInner() {
                     <button
                       key={d.mins}
                       onClick={() => setDuration(d.mins)}
-                      className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                      className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 t[...]
                     >
                       {d.mins} mins · £{d.price}
                     </button>
@@ -306,7 +311,8 @@ function BookingInner() {
                 min={getMinDate()}
                 max={getMaxDate()}
                 onChange={(e) => setDate(e.target.value)}
-                className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-900 focus:border-brand-blue focus:outline-none w-full sm:w-auto"
+                style={inputStyle}
+                className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-brand-blue focus:outline-none w-full sm:w-auto"
               />
               <p className="mt-1 text-xs text-gray-400">Availability shown up to 2 weeks in advance</p>
             </div>
@@ -323,7 +329,7 @@ function BookingInner() {
                         <button
                           key={s}
                           onClick={() => setStartTime(s)}
-                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 tex[...]
                         >
                           {formatTime(s)}
                         </button>
@@ -370,7 +376,8 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                    style={inputStyle}
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
                   />
                 </div>
               ))}
@@ -406,7 +413,8 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                    style={inputStyle}
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
                   />
                 </div>
               ))}
@@ -451,6 +459,7 @@ function BookingInner() {
                   onChange={(e) => setMedicalNotes(e.target.value)}
                   rows={4}
                   placeholder="Describe your conditions..."
+                  style={inputStyle}
                   className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-brand-blue focus:outline-none"
                 />
               </div>
@@ -481,7 +490,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryRecent(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-go[...]
                     >
                       {opt}
                     </button>
@@ -495,6 +504,7 @@ function BookingInner() {
                       onChange={(e) => setInjuryRecentNotes(e.target.value)}
                       rows={3}
                       placeholder="Describe injury/surgery..."
+                      style={inputStyle}
                       className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-brand-blue focus:outline-none"
                     />
                   </div>
@@ -508,7 +518,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryPrevious(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-bran[...]
                     >
                       {opt}
                     </button>
@@ -522,6 +532,7 @@ function BookingInner() {
                       onChange={(e) => setInjuryPreviousNotes(e.target.value)}
                       rows={3}
                       placeholder="Describe previous injuries..."
+                      style={inputStyle}
                       className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-brand-blue focus:outline-none"
                     />
                   </div>
