@@ -8,6 +8,10 @@ interface Settings {
   buffer_mins_after_booking: number;
   default_start_time: string;
   default_end_time: string;
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+  email?: string;
 }
 
 export default function SettingsPage() {
@@ -16,6 +20,10 @@ export default function SettingsPage() {
     buffer_mins_after_booking: 30,
     default_start_time: "09:00",
     default_end_time: "17:00",
+    instagram: "",
+    facebook: "",
+    tiktok: "",
+    email: "",
   });
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -39,7 +47,18 @@ export default function SettingsPage() {
       });
       if (settingsRes.ok) {
         const settingsData = await settingsRes.json();
-        setSettings(settingsData);
+        setSettings((prev) => ({ ...prev, ...settingsData }));
+      }
+
+      // Fetch social settings
+      const socialRes = await fetch("/api/admin/settings/social", {
+        headers: {
+          "x-admin-password": password,
+        },
+      });
+      if (socialRes.ok) {
+        const socialData = await socialRes.json();
+        setSettings((prev) => ({ ...prev, ...socialData }));
       }
 
       // Fetch working dates
@@ -85,9 +104,30 @@ export default function SettingsPage() {
           "Content-Type": "application/json",
           "x-admin-password": password,
         },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          booking_window_days: settings.booking_window_days,
+          buffer_mins_after_booking: settings.buffer_mins_after_booking,
+          default_start_time: settings.default_start_time,
+          default_end_time: settings.default_end_time,
+        }),
       });
       if (!settingsRes.ok) throw new Error("Failed to save settings");
+
+      // Save social settings
+      const socialRes = await fetch("/api/admin/settings/social", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": password,
+        },
+        body: JSON.stringify({
+          instagram: settings.instagram,
+          facebook: settings.facebook,
+          tiktok: settings.tiktok,
+          email: settings.email,
+        }),
+      });
+      if (!socialRes.ok) throw new Error("Failed to save social settings");
 
       // Save working dates
       const datesRes = await fetch("/api/working-dates", {
@@ -165,6 +205,70 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-4xl space-y-8">
+      {/* Social Links Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-brand-blue mb-2">Social Links & Contact</h2>
+        <p className="text-gray-600 text-sm mb-6">Update your social media links and contact email that appear throughout the site.</p>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-brand-blue mb-2">
+              📧 Contact Email
+            </label>
+            <input
+              type="email"
+              value={settings.email || ""}
+              onChange={(e) => handleSettingChange("email", e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              placeholder="contact@maggsymassagetherapy.com"
+            />
+          </div>
+
+          {/* Instagram */}
+          <div>
+            <label className="block text-sm font-medium text-brand-blue mb-2">
+              📸 Instagram
+            </label>
+            <input
+              type="text"
+              value={settings.instagram || ""}
+              onChange={(e) => handleSettingChange("instagram", e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              placeholder="https://instagram.com/maggsymt"
+            />
+          </div>
+
+          {/* Facebook */}
+          <div>
+            <label className="block text-sm font-medium text-brand-blue mb-2">
+              👥 Facebook
+            </label>
+            <input
+              type="text"
+              value={settings.facebook || ""}
+              onChange={(e) => handleSettingChange("facebook", e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              placeholder="https://facebook.com/..."
+            />
+          </div>
+
+          {/* TikTok */}
+          <div>
+            <label className="block text-sm font-medium text-brand-blue mb-2">
+              🎵 TikTok
+            </label>
+            <input
+              type="text"
+              value={settings.tiktok || ""}
+              onChange={(e) => handleSettingChange("tiktok", e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              placeholder="https://tiktok.com/..."
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Working Dates Calendar */}
       <div>
         <h2 className="text-2xl font-bold text-brand-blue mb-2">Select Your Working Dates</h2>
