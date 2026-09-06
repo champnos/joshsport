@@ -306,7 +306,7 @@ function BookingInner() {
                 min={getMinDate()}
                 max={getMaxDate()}
                 onChange={(e) => setDate(e.target.value)}
-                className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-brand-blue focus:outline-none w-full sm:w-auto"
+                className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-900 focus:border-brand-blue focus:outline-none w-full sm:w-auto"
               />
               <p className="mt-1 text-xs text-gray-400">Availability shown up to 2 weeks in advance</p>
             </div>
@@ -370,7 +370,7 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
                   />
                 </div>
               ))}
@@ -406,7 +406,7 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
                   />
                 </div>
               ))}
