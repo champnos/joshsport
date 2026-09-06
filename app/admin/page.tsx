@@ -9,6 +9,7 @@ interface TreatmentFormState {
   description: string;
   durations: TreatmentDuration[];
   active: boolean;
+  image_url?: string;
 }
 
 const emptyForm: TreatmentFormState = {
@@ -38,6 +39,7 @@ export default function AdminPage() {
   const [treatmentError, setTreatmentError] = useState("");
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
   const [form, setForm] = useState<TreatmentFormState>(emptyForm);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const headers = useMemo(
     () => ({ "x-admin-password": password, "Content-Type": "application/json" }),
@@ -136,6 +138,7 @@ export default function AdminPage() {
       description: treatment.description,
       durations: treatment.durations.length > 0 ? treatment.durations : [{ mins: 30, price: 25 }],
       active: treatment.active,
+      image_url: treatment.image_url,
     });
     setActiveTab("treatments");
   };
@@ -161,6 +164,34 @@ export default function AdminPage() {
       ...prev,
       durations: prev.durations.filter((_, durationIndex) => durationIndex !== index),
     }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editingTreatmentId || !e.target.files?.[0]) return;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", e.target.files[0]);
+
+      const res = await fetch(`/api/treatments/${editingTreatmentId}/image`, {
+        method: "POST",
+        headers: { "x-admin-password": password },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setTreatmentError(data?.error ?? "Failed to upload image.");
+        return;
+      }
+
+      setForm((prev) => ({ ...prev, image_url: data.image_url }));
+    } catch {
+      setTreatmentError("Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const saveTreatment = async (e: React.FormEvent) => {
@@ -350,6 +381,25 @@ export default function AdminPage() {
                     />
                   </div>
 
+                  {editingTreatmentId && (
+                    <div>
+                      <label className="block text-sm font-semibold text-brand-blue mb-2">Treatment Image</label>
+                      {form.image_url && (
+                        <div className="mb-3 rounded-lg overflow-hidden w-full h-32 bg-gray-200">
+                          <img src={form.image_url} alt={form.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                        className="w-full text-sm"
+                      />
+                      {uploadingImage && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-4">
                       <label className="block text-sm font-semibold text-brand-blue">Durations & prices</label>
@@ -409,45 +459,52 @@ export default function AdminPage() {
                 <div className="space-y-4">
                   <h2 className="text-lg font-bold text-brand-blue">{treatments.length} Treatment(s)</h2>
                   {treatments.map((treatment) => (
-                    <div key={treatment.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-bold text-brand-blue">{treatment.name}</h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${treatment.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                            {treatment.active ? "Active" : "Inactive"}
-                          </span>
+                    <div key={treatment.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm flex flex-col">
+                      {treatment.image_url && (
+                        <div className="w-full h-40 bg-gray-200 overflow-hidden">
+                          <img src={treatment.image_url} alt={treatment.name} className="w-full h-full object-cover" />
                         </div>
-                        <p className="text-sm text-gray-600 mt-2">{treatment.description}</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {treatment.durations.map((duration) => (
-                            <span key={`${treatment.id}-${duration.mins}`} className="text-xs bg-brand-blue/5 text-brand-blue rounded-full px-2 py-1">
-                              {duration.mins}m · £{duration.price}
+                      )}
+                      <div className="p-6 flex flex-col gap-4">
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-bold text-brand-blue">{treatment.name}</h3>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${treatment.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                              {treatment.active ? "Active" : "Inactive"}
                             </span>
-                          ))}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-2">{treatment.description}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {treatment.durations.map((duration) => (
+                              <span key={`${treatment.id}-${duration.mins}`} className="text-xs bg-brand-blue/5 text-brand-blue rounded-full px-2 py-1">
+                                {duration.mins}m · £{duration.price}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(treatment)}
-                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void toggleTreatmentActive(treatment)}
-                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
-                        >
-                          {treatment.active ? "Mark inactive" : "Mark active"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteTreatment(treatment.id)}
-                          className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(treatment)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void toggleTreatmentActive(treatment)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
+                          >
+                            {treatment.active ? "Mark inactive" : "Mark active"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteTreatment(treatment.id)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
