@@ -51,7 +51,22 @@ const featuredTreatments = [
   },
 ];
 
-export default function Home() {
+async function getHeroImage() {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/hero-image`, {
+      cache: "revalidate",
+      next: { revalidate: 3600 },
+    });
+    const data = await res.json();
+    return data.image_url || null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function Home() {
+  const heroImage = await getHeroImage();
+
   return (
     <div>
       <section
@@ -95,8 +110,15 @@ export default function Home() {
 
       <section className="bg-white py-20 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
-          <div className="flex min-h-[400px] items-center justify-center rounded-2xl border-4 border-brand-gold/40 bg-gray-50 text-center text-gray-400 text-sm shadow-sm">
-            [ Photo of Josh ]
+          <div className="flex min-h-[400px] items-center justify-center rounded-2xl border-4 border-brand-gold/40 bg-gray-50 text-center text-gray-400 text-sm shadow-sm overflow-hidden">
+            {heroImage ? (
+              <img src={heroImage} alt="Josh Maggs" className="w-full h-full object-cover" />
+            ) : (
+              <div className="text-center">
+                <p>[ Photo of Josh ]</p>
+                <p className="text-xs text-gray-300 mt-2">Upload in admin</p>
+              </div>
+            )}
           </div>
           <div>
             <span className="inline-block text-xs font-bold uppercase tracking-widest text-brand-blue bg-brand-gold px-3 py-1 rounded-full">
