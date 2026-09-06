@@ -17,34 +17,12 @@ interface TreatmentOption {
   durations: DurationOption[];
 }
 
-const STATIC_TREATMENTS: TreatmentOption[] = [
-  {
-    id: "sports-massage",
-    name: "Sports Massage",
-    description: "Designed to aid performance, prevent injury and support recovery through movement and deep tissue techniques.",
-    durations: [{ mins: 30, price: 25 }, { mins: 45, price: 35 }, { mins: 60, price: 45 }],
-  },
-  {
-    id: "full-body-reset",
-    name: "Full Body Reset",
-    description: "A full-length sports massage that targets all muscle groups for total body recovery and reset.",
-    durations: [{ mins: 90, price: 65 }],
-  },
-  {
-    id: "pre-event",
-    name: "Pre-Event Treatment",
-    description: "Activating and stimulating massage to prime your muscles for competition.",
-    durations: [{ mins: 30, price: 25 }],
-  },
-  {
-    id: "post-event",
-    name: "Post-Event Recovery",
-    description: "Gentle yet effective techniques to flush out waste products and speed up recovery.",
-    durations: [{ mins: 30, price: 25 }],
-  },
-];
+interface MedicalCondition {
+  id: string;
+  name: string;
+}
 
-const MEDICAL_CONDITIONS = [
+const MEDICAL_CONDITIONS_FALLBACK = [
   "Heart conditions",
   "High or low blood pressure",
   "Diabetes",
@@ -84,6 +62,8 @@ const inputStyle = { color: "#1f2937 !important" } as React.CSSProperties;
 function BookingInner() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
+  const [treatments, setTreatments] = useState<TreatmentOption[]>([]);
+  const [treatmentsLoading, setTreatmentsLoading] = useState(true);
 
   const [treatmentId, setTreatmentId] = useState(searchParams.get("treatment") ?? "");
   const [duration, setDuration] = useState<number | null>(null);
@@ -116,7 +96,25 @@ function BookingInner() {
   const [success, setSuccess] = useState(false);
   const [bookingRef, setBookingRef] = useState("");
 
-  const selectedTreatment = STATIC_TREATMENTS.find((t) => t.id === treatmentId);
+  // Load treatments from DB on mount
+  useEffect(() => {
+    const loadTreatments = async () => {
+      try {
+        const res = await fetch("/api/treatments");
+        if (res.ok) {
+          const data = await res.json();
+          setTreatments(data);
+        }
+      } catch {
+        console.error("Failed to load treatments");
+      } finally {
+        setTreatmentsLoading(false);
+      }
+    };
+    loadTreatments();
+  }, []);
+
+  const selectedTreatment = treatments.find((t) => t.id === treatmentId);
 
   useEffect(() => {
     if (selectedTreatment && selectedTreatment.durations.length === 1) {
@@ -249,48 +247,54 @@ function BookingInner() {
         {step === 1 && (
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-6">Select Treatment</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {STATIC_TREATMENTS.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTreatmentId(t.id)}
-                  className={`text-left rounded-2xl border-2 p-5 transition-all ${treatmentId === t.id ? "border-brand-gold bg-brand-gold/5" : "border-gray-200 hover:border-brand-blue/30"}`}
-                >
-                  <h3 className="font-bold text-brand-blue">{t.name}</h3>
-                  <p className="mt-1 text-sm text-gray-600">{t.description}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {t.durations.map((d) => (
-                      <span key={d.mins} className="text-xs bg-brand-blue/5 text-brand-blue rounded-full px-2 py-1">{d.mins}m · £{d.price}</span>
-                    ))}
-                  </div>
-                </button>
-              ))}
-            </div>
-            {selectedTreatment && selectedTreatment.durations.length > 1 && (
-              <div className="mt-6">
-                <h3 className="font-semibold text-brand-blue mb-3">Select Duration</h3>
-                <div className="flex flex-wrap gap-3">
-                  {selectedTreatment.durations.map((d) => (
+            {treatmentsLoading && <p className="text-gray-500">Loading treatments...</p>}
+            {!treatmentsLoading && treatments.length === 0 && <p className="text-gray-500">No treatments available.</p>}
+            {!treatmentsLoading && treatments.length > 0 && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {treatments.map((t) => (
                     <button
-                      key={d.mins}
-                      onClick={() => setDuration(d.mins)}
-                      className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200"}`}
+                      key={t.id}
+                      onClick={() => setTreatmentId(t.id)}
+                      className={`text-left rounded-2xl border-2 p-5 transition-all ${treatmentId === t.id ? "border-brand-gold bg-brand-gold/5" : "border-gray-200 hover:border-brand-blue/30"}`}
                     >
-                      {d.mins} mins · £{d.price}
+                      <h3 className="font-bold text-brand-blue">{t.name}</h3>
+                      <p className="mt-1 text-sm text-gray-600">{t.description}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {t.durations.map((d) => (
+                          <span key={d.mins} className="text-xs bg-brand-blue/5 text-brand-blue rounded-full px-2 py-1">{d.mins}m · £{d.price}</span>
+                        ))}
+                      </div>
                     </button>
                   ))}
                 </div>
-              </div>
+                {selectedTreatment && selectedTreatment.durations.length > 1 && (
+                  <div className="mt-6">
+                    <h3 className="font-semibold text-brand-blue mb-3">Select Duration</h3>
+                    <div className="flex flex-wrap gap-3">
+                      {selectedTreatment.durations.map((d) => (
+                        <button
+                          key={d.mins}
+                          onClick={() => setDuration(d.mins)}
+                          className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200"}`}
+                        >
+                          {d.mins} mins · £{d.price}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={!selectedTreatment || !duration}
+                    className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </>
             )}
-            <div className="mt-8 flex justify-end">
-              <button
-                onClick={() => setStep(2)}
-                disabled={!selectedTreatment || !duration}
-                className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Next <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
           </div>
         )}
 
@@ -436,7 +440,7 @@ function BookingInner() {
             <h2 className="text-2xl font-bold text-brand-blue mb-2">Medical History</h2>
             <p className="text-sm text-gray-600 mb-6">Please tick if you have any of the following:</p>
             <div className="space-y-3">
-              {MEDICAL_CONDITIONS.map((cond) => (
+              {MEDICAL_CONDITIONS_FALLBACK.map((cond) => (
                 <label key={cond} className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
