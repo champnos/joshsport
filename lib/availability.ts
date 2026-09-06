@@ -22,12 +22,14 @@ export function getAvailableSlots(
   date: string,
   duration: number,
   existingBookings: ExistingBooking[] = [],
-  bufferMinsAfterBooking: number = 30
+  bufferMinsAfterBooking: number = 30,
+  startTime: string = "09:00",
+  endTime: string = "20:00"
 ) {
   if (!date || !Number.isFinite(duration) || duration <= 0) return [];
 
-  const startOfDay = toMinutes("09:00");
-  const endOfDay = toMinutes("20:00");
+  const startOfDay = toMinutes(startTime);
+  const endOfDay = toMinutes(endTime);
 
   const slots: string[] = [];
   for (let slot = startOfDay; slot < endOfDay; slot += 30) {
