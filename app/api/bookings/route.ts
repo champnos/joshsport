@@ -73,12 +73,25 @@ export async function POST(request: Request) {
     }
 
     const insertPayload = {
-      ...body,
+      treatment_id,
+      treatment_name: body.treatment_name,
+      duration_mins,
+      date,
+      start_time,
       client_name,
       client_dob,
       client_phone,
       client_address,
       client_postcode,
+      emergency_name: typeof body.emergency_name === "string" ? body.emergency_name.trim() : "",
+      emergency_relationship: typeof body.emergency_relationship === "string" ? body.emergency_relationship.trim() : "",
+      emergency_phone: typeof body.emergency_phone === "string" ? body.emergency_phone.trim() : "",
+      medical_conditions: Array.isArray(body.medical_conditions) ? body.medical_conditions : [],
+      medical_notes: typeof body.medical_notes === "string" ? body.medical_notes.trim() : "",
+      injury_recent: typeof body.injury_recent === "boolean" ? body.injury_recent : false,
+      injury_recent_notes: typeof body.injury_recent_notes === "string" ? body.injury_recent_notes.trim() : "",
+      injury_previous: typeof body.injury_previous === "boolean" ? body.injury_previous : false,
+      injury_previous_notes: typeof body.injury_previous_notes === "string" ? body.injury_previous_notes.trim() : "",
       status: "pending",
     };
 
