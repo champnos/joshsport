@@ -24,8 +24,18 @@ export async function POST(request: Request) {
     const client_address = typeof body.client_address === "string" ? body.client_address.trim() : "";
     const client_postcode = typeof body.client_postcode === "string" ? body.client_postcode.trim() : "";
 
-    const isValidDob =
-      /^\d{4}-\d{2}-\d{2}$/.test(client_dob) && !Number.isNaN(Date.parse(`${client_dob}T00:00:00Z`));
+    const dobMatch = client_dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    let isValidDob = false;
+    if (dobMatch) {
+      const year = Number(dobMatch[1]);
+      const month = Number(dobMatch[2]);
+      const day = Number(dobMatch[3]);
+      const parsedDob = new Date(Date.UTC(year, month - 1, day));
+      isValidDob =
+        parsedDob.getUTCFullYear() === year &&
+        parsedDob.getUTCMonth() === month - 1 &&
+        parsedDob.getUTCDate() === day;
+    }
     const clientPhoneDigits = client_phone.replace(/\D/g, "");
     const isValidPhone = /^\+?[0-9\s\-()]{7,20}$/.test(client_phone) && clientPhoneDigits.length >= 7;
 
