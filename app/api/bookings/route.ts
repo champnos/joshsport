@@ -36,8 +36,8 @@ export async function POST(request: Request) {
         parsedDob.getUTCMonth() === month - 1 &&
         parsedDob.getUTCDate() === day;
     }
-    const clientPhoneDigits = client_phone.replace(/\D/g, "");
-    const isValidPhone = /^\+?[0-9\s\-()]{7,20}$/.test(client_phone) && clientPhoneDigits.length >= 7;
+    const normalizedPhone = client_phone.replace(/[\s\-()]/g, "");
+    const isValidPhone = /^\+?\d{7,15}$/.test(normalizedPhone);
 
     if (
       !treatment_id ||
