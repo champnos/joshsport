@@ -22,14 +22,30 @@ async function getSettings() {
       .eq("key", "buffer_mins_after_booking")
       .single();
 
+    const { data: startTimeData } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "default_start_time")
+      .single();
+
+    const { data: endTimeData } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "default_end_time")
+      .single();
+
     return {
       booking_window_days: bookingData ? parseInt(bookingData.value) : 30,
       buffer_mins_after_booking: bufferData ? parseInt(bufferData.value) : 30,
+      default_start_time: startTimeData?.value || "09:00",
+      default_end_time: endTimeData?.value || "17:00",
     };
   } catch {
     return {
       booking_window_days: 30,
       buffer_mins_after_booking: 30,
+      default_start_time: "09:00",
+      default_end_time: "17:00",
     };
   }
 }
@@ -41,14 +57,14 @@ export async function GET(request: NextRequest) {
     const duration = Number(searchParams.get("duration") ?? "0");
     const admin = searchParams.get("admin");
 
-    // Admin endpoint: fetch working days/hours
+    // Admin endpoint: fetch working dates
     if (admin === "true") {
       if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
 
       const { data, error } = await supabase
-        .from("availability")
+        .from("working_dates")
         .select("*")
-        .order("day_of_week", { ascending: true });
+        .order("date", { ascending: true });
 
       if (error) throw error;
       return NextResponse.json(data || [], { status: 200 });
@@ -74,19 +90,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ slots: [] });
     }
 
-    // Get day of week (0 = Monday, 6 = Sunday)
-    const dayOfWeek = requestedDate.getDay() === 0 ? 6 : requestedDate.getDay() - 1;
-
-    // Check if therapist is working that day
-    const { data: availabilityData, error: availError } = await supabase
-      .from("availability")
+    // Check if therapist is working that date
+    const { data: workingDateData, error: workingDateError } = await supabase
+      .from("working_dates")
       .select("*")
-      .eq("day_of_week", dayOfWeek)
+      .eq("date", date)
       .single();
 
-    if (availError && availError.code !== "PGRST116") throw availError;
+    if (workingDateError && workingDateError.code !== "PGRST116") throw workingDateError;
 
-    if (!availabilityData?.is_working) {
+    if (!workingDateData) {
       return NextResponse.json({ slots: [] });
     }
 
@@ -97,7 +110,7 @@ export async function GET(request: NextRequest) {
       .eq("date", date)
       .neq("status", "cancelled");
 
-    const slots = getAvailableSlots(date, duration, existingBookings ?? [], bufferMins);
+    const slots = getAvailableSlots(date, duration, existingBookings ?? [], bufferMins, settings.default_start_time, settings.default_end_time);
     return NextResponse.json({ slots });
   } catch (err) {
     console.error("Failed to fetch availability:", err);
@@ -110,23 +123,15 @@ export async function POST(request: NextRequest) {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
 
     const body = await request.json();
-    const { day_of_week, is_working, start_time, end_time } = body;
+    const { date } = body;
 
-    if (day_of_week === undefined || is_working === undefined) {
+    if (!date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const { data, error } = await supabase
-      .from("availability")
-      .upsert(
-        {
-          day_of_week,
-          is_working,
-          start_time: is_working ? start_time : null,
-          end_time: is_working ? end_time : null,
-        },
-        { onConflict: "day_of_week" }
-      )
+      .from("working_dates")
+      .insert({ date })
       .select();
 
     if (error) throw error;
