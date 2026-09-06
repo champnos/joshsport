@@ -29,7 +29,7 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [isAuthed, setIsAuthed] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [activeTab, setActiveTab] = useState<"bookings" | "treatments">("bookings");
+  const [activeTab, setActiveTab] = useState<"bookings" | "treatments" | "settings">("bookings");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,6 +41,10 @@ export default function AdminPage() {
   const [form, setForm] = useState<TreatmentFormState>(emptyForm);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [deletingImage, setDeletingImage] = useState(false);
+  const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [uploadingHero, setUploadingHero] = useState(false);
+  const [deletingHero, setDeletingHero] = useState(false);
+  const [heroError, setHeroError] = useState("");
 
   const headers = useMemo(
     () => ({ "x-admin-password": password, "Content-Type": "application/json" }),
@@ -79,12 +83,25 @@ export default function AdminPage() {
     }
   }, []);
 
+  const loadHeroImage = useCallback(async () => {
+    try {
+      const res = await fetch("/api/hero-image", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setHeroImage(data.image_url || null);
+      }
+    } catch {
+      setHeroImage(null);
+    }
+  }, [headers]);
+
   useEffect(() => {
     if (isAuthed) {
       void loadBookings();
       void loadTreatments();
+      void loadHeroImage();
     }
-  }, [isAuthed, loadBookings, loadTreatments]);
+  }, [isAuthed, loadBookings, loadTreatments, loadHeroImage]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -219,6 +236,60 @@ export default function AdminPage() {
     }
   };
 
+  const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+
+    setUploadingHero(true);
+    setHeroError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", e.target.files[0]);
+
+      const res = await fetch("/api/hero-image", {
+        method: "POST",
+        headers: { "x-admin-password": password },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setHeroError(data?.error ?? "Failed to upload image.");
+        return;
+      }
+
+      setHeroImage(data.image_url);
+    } catch {
+      setHeroError("Failed to upload hero image.");
+    } finally {
+      setUploadingHero(false);
+    }
+  };
+
+  const handleDeleteHeroImage = async () => {
+    if (!heroImage) return;
+
+    setDeletingHero(true);
+    setHeroError("");
+    try {
+      const res = await fetch("/api/hero-image", {
+        method: "DELETE",
+        headers: { "x-admin-password": password },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setHeroError(data?.error ?? "Failed to delete image.");
+        return;
+      }
+
+      setHeroImage(null);
+    } catch {
+      setHeroError("Failed to delete hero image.");
+    } finally {
+      setDeletingHero(false);
+    }
+  };
+
   const saveTreatment = async (e: React.FormEvent) => {
     e.preventDefault();
     setTreatmentError("");
@@ -306,8 +377,8 @@ export default function AdminPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex gap-4 mb-8">
-          {(["bookings", "treatments"] as const).map((tab) => (
+        <div className="flex gap-4 mb-8 flex-wrap">
+          {(["bookings", "treatments", "settings"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -547,6 +618,42 @@ export default function AdminPage() {
               </div>
             )}
           </>
+        )}
+
+        {activeTab === "settings" && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm max-w-2xl">
+            <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Image</h2>
+            {heroError && <p className="text-sm text-red-600 mb-4">{heroError}</p>}
+            
+            {heroImage && (
+              <div className="mb-6 rounded-lg overflow-hidden w-full h-64 bg-gray-200">
+                <img src={heroImage} alt="Hero" className="w-full h-full object-cover" />
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-brand-blue">Upload Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleHeroImageUpload}
+                disabled={uploadingHero}
+                className="w-full text-sm"
+              />
+              {uploadingHero && <p className="text-xs text-gray-500">Uploading...</p>}
+              
+              {heroImage && (
+                <button
+                  type="button"
+                  onClick={handleDeleteHeroImage}
+                  disabled={deletingHero}
+                  className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {deletingHero ? "Deleting..." : "Delete hero image"}
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
