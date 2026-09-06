@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, CheckCircle2, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 
 interface DurationOption {
   mins: number;
