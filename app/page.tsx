@@ -117,13 +117,13 @@ export default function Home() {
 
       <section className="bg-white py-20 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
-          <div className="flex min-h-[400px] items-center justify-center rounded-2xl border-4 border-brand-gold/40 bg-gray-50 text-center text-gray-400 text-sm shadow-sm overflow-hidden">
+          <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-gray-50 shadow-sm overflow-hidden">
             {loading ? (
               <div className="text-gray-400">Loading...</div>
             ) : heroImage ? (
               <img src={heroImage} alt="Josh Maggs" className="w-full h-full object-cover" />
             ) : (
-              <div className="text-center">
+              <div className="text-center text-gray-400 text-sm">
                 <p>[ Photo of Josh ]</p>
                 <p className="text-xs text-gray-300 mt-2">Upload in admin</p>
               </div>
