@@ -74,7 +74,7 @@ export default function ContactPage() {
     "w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none";
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-gray-950 min-h-screen">
       <section className="bg-gray-950 px-4 pb-20 pt-36 text-white sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl text-center">
           <h1 className="text-4xl font-bold sm:text-5xl">Get in Touch</h1>
@@ -169,17 +169,17 @@ export default function ContactPage() {
         </div>
 
         <div className="mx-auto mt-12 grid max-w-7xl gap-6 text-center md:grid-cols-3">
-          <div className="rounded-xl border border-gray-200 p-6">
+          <div className="rounded-xl border border-gray-200 p-6 bg-white">
             <h2 className="text-lg font-semibold text-brand-blue">📧 Email</h2>
             <a href="mailto:hello@maggsymassagetherapy.com" className="mt-2 inline-block text-gray-700 hover:text-brand-blue">
               hello@maggsymassagetherapy.com
             </a>
           </div>
-          <div className="rounded-xl border border-gray-200 p-6">
+          <div className="rounded-xl border border-gray-200 p-6 bg-white">
             <h2 className="text-lg font-semibold text-brand-blue">📍 Location</h2>
             <p className="mt-2 text-gray-700">Bristol &amp; Bath</p>
           </div>
-          <div className="rounded-xl border border-gray-200 p-6">
+          <div className="rounded-xl border border-gray-200 p-6 bg-white">
             <h2 className="text-lg font-semibold text-brand-blue">📱 Instagram</h2>
             <a
               href="https://instagram.com/maggsymt"
