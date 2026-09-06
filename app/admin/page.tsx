@@ -40,6 +40,7 @@ export default function AdminPage() {
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
   const [form, setForm] = useState<TreatmentFormState>(emptyForm);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [deletingImage, setDeletingImage] = useState(false);
 
   const headers = useMemo(
     () => ({ "x-admin-password": password, "Content-Type": "application/json" }),
@@ -191,6 +192,30 @@ export default function AdminPage() {
       setTreatmentError("Failed to upload image.");
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    if (!editingTreatmentId || !form.image_url) return;
+
+    setDeletingImage(true);
+    try {
+      const res = await fetch(`/api/treatments/${editingTreatmentId}/image`, {
+        method: "DELETE",
+        headers: { "x-admin-password": password },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setTreatmentError(data?.error ?? "Failed to delete image.");
+        return;
+      }
+
+      setForm((prev) => ({ ...prev, image_url: undefined }));
+    } catch {
+      setTreatmentError("Failed to delete image.");
+    } finally {
+      setDeletingImage(false);
     }
   };
 
@@ -394,9 +419,19 @@ export default function AdminPage() {
                         accept="image/*"
                         onChange={handleImageUpload}
                         disabled={uploadingImage}
-                        className="w-full text-sm"
+                        className="w-full text-sm mb-2"
                       />
-                      {uploadingImage && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+                      {uploadingImage && <p className="text-xs text-gray-500 mb-2">Uploading...</p>}
+                      {form.image_url && (
+                        <button
+                          type="button"
+                          onClick={handleDeleteImage}
+                          disabled={deletingImage}
+                          className="w-full text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingImage ? "Deleting..." : "Delete image"}
+                        </button>
+                      )}
                     </div>
                   )}
 
