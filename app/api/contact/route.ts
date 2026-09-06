@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     await resend.emails.send({
       from: "contact@maggsymassagetherapy.com",
       to: "contact@maggsymassagetherapy.com",
-      replyTo: trimmedEmail,
+      reply_to: trimmedEmail,
       subject: `New Contact Form Submission from ${trimmedName}`,
       html: `
         <h2>New Contact Form Submission</h2>
