@@ -6,12 +6,16 @@ import { useRouter } from "next/navigation";
 interface Settings {
   booking_window_days: number;
   buffer_mins_after_booking: number;
+  default_start_time: string;
+  default_end_time: string;
 }
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
     booking_window_days: 30,
     buffer_mins_after_booking: 30,
+    default_start_time: "09:00",
+    default_end_time: "17:00",
   });
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -55,7 +59,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSettingChange = (field: keyof Settings, value: number) => {
+  const handleSettingChange = (field: keyof Settings, value: string | number) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -199,6 +203,42 @@ export default function SettingsPage() {
         <p className="text-xs text-gray-500 mt-2">
           {workingDates.size} date(s) selected
         </p>
+      </div>
+
+      {/* Working Hours Section */}
+      <div className="border-t border-gray-200 pt-8">
+        <h2 className="text-2xl font-bold text-brand-blue mb-2">Default Working Hours</h2>
+        <p className="text-gray-600 text-sm mb-6">Set your default working hours for selected dates.</p>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            {/* Start Time */}
+            <div>
+              <label className="block text-sm font-medium text-brand-blue mb-2">
+                Start Time
+              </label>
+              <input
+                type="time"
+                value={settings.default_start_time}
+                onChange={(e) => handleSettingChange("default_start_time", e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              />
+            </div>
+
+            {/* End Time */}
+            <div>
+              <label className="block text-sm font-medium text-brand-blue mb-2">
+                End Time
+              </label>
+              <input
+                type="time"
+                value={settings.default_end_time}
+                onChange={(e) => handleSettingChange("default_end_time", e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Booking Settings Section */}
