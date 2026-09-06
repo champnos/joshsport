@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Activity, ShieldCheck, TimerReset, Waves } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Treatment } from "@/lib/types";
 
 const benefits = [
   {
@@ -27,51 +28,37 @@ const benefits = [
   },
 ];
 
-const featuredTreatments = [
-  {
-    id: "sports-massage",
-    name: "Sports Massage",
-    description: "Designed to aid performance, prevent injury and support recovery through movement and deep tissue techniques.",
-    pricing: [{ mins: 30, price: 25 }, { mins: 45, price: 35 }, { mins: 60, price: 45 }],
-  },
-  {
-    id: "full-body-reset",
-    name: "Full Body Reset",
-    description: "A full-length sports massage that targets all muscle groups for total body recovery and reset.",
-    pricing: [{ mins: 90, price: 65 }],
-  },
-  {
-    id: "pre-event",
-    name: "Pre-Event Treatment",
-    description: "Activating and stimulating massage to prime your muscles for competition.",
-    pricing: [{ mins: 30, price: 25 }],
-  },
-  {
-    id: "post-event",
-    name: "Post-Event Recovery",
-    description: "Gentle yet effective techniques to flush out waste products and speed up recovery.",
-    pricing: [{ mins: 30, price: 25 }],
-  },
-];
-
 export default function Home() {
   const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchHeroImage = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("/api/hero-image");
-        const data = await res.json();
-        setHeroImage(data.image_url || null);
+        const [heroRes, treatmentsRes] = await Promise.all([
+          fetch("/api/hero-image"),
+          fetch("/api/treatments"),
+        ]);
+
+        if (heroRes.ok) {
+          const heroData = await heroRes.json();
+          setHeroImage(heroData.image_url || null);
+        }
+
+        if (treatmentsRes.ok) {
+          const treatmentsData = await treatmentsRes.json();
+          setTreatments(treatmentsData.filter((t: Treatment) => t.active));
+        }
       } catch {
         setHeroImage(null);
+        setTreatments([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchHeroImage();
+    fetchData();
   }, []);
 
   return (
@@ -190,22 +177,28 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-10 grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
-            {featuredTreatments.map((t) => (
-              <div key={t.id} className="border-t border-r border-b border-brand-blue/10 border-l-4 border-l-brand-gold rounded-2xl p-6 flex flex-col shadow-sm">
-                <h3 className="font-bold text-brand-blue text-xl">{t.name}</h3>
-                <p className="mt-2 text-gray-600 text-sm leading-6 flex-1">{t.description}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {t.pricing.map((p) => (
-                    <span key={p.mins} className="text-xs border border-brand-blue/20 text-brand-blue rounded-full px-3 py-1">
-                      {p.mins} mins · £{p.price}
-                    </span>
-                  ))}
+            {loading ? (
+              <p className="text-gray-500 col-span-full text-center">Loading treatments...</p>
+            ) : treatments.length === 0 ? (
+              <p className="text-gray-500 col-span-full text-center">No treatments available.</p>
+            ) : (
+              treatments.map((t) => (
+                <div key={t.id} className="border-t border-r border-b border-brand-blue/10 border-l-4 border-l-brand-gold rounded-2xl p-6 flex flex-col shadow-sm">
+                  <h3 className="font-bold text-brand-blue text-xl">{t.name}</h3>
+                  <p className="mt-2 text-gray-600 text-sm leading-6 flex-1">{t.description}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {t.durations.map((p) => (
+                      <span key={p.mins} className="text-xs border border-brand-blue/20 text-brand-blue rounded-full px-3 py-1">
+                        {p.mins} mins · £{p.price}
+                      </span>
+                    ))}
+                  </div>
+                  <Link href="/booking" className="mt-4 text-center bg-brand-blue text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity">
+                    Book Now
+                  </Link>
                 </div>
-                <Link href="/booking" className="mt-4 text-center bg-brand-blue text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity">
-                  Book Now
-                </Link>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
