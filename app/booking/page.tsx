@@ -59,6 +59,7 @@ function BookingInner() {
 
   const [bookingWindowDays, setBookingWindowDays] = useState(30);
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("");
@@ -209,25 +210,80 @@ function BookingInner() {
     }
   };
 
-  // Check if a date string is selectable (has working availability)
+  // Calendar helper functions
+  const getDaysInMonth = (d: Date) => {
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (d: Date) => {
+    return new Date(d.getFullYear(), d.getMonth(), 1).getDay();
+  };
+
+  const formatDate = (year: number, month: number, day: number) => {
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  };
+
+  const isDateInBookingWindow = (dateStr: string) => {
+    const minDate = new Date(getMinDate());
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + bookingWindowDays);
+    const checkDate = new Date(dateStr + "T00:00:00Z");
+    return checkDate >= minDate && checkDate <= maxDate;
+  };
+
   const isDateSelectable = (dateStr: string) => {
-    return workingDates.has(dateStr);
+    return workingDates.has(dateStr) && isDateInBookingWindow(dateStr);
   };
 
-  const getMaxDate = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + bookingWindowDays);
-    return d.toISOString().split("T")[0];
-  };
-
-  // Validate date on change
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDate = e.target.value;
-    if (isDateSelectable(selectedDate)) {
-      setDate(selectedDate);
+  const handleDateSelect = (dateStr: string) => {
+    if (isDateSelectable(dateStr)) {
+      setDate(dateStr);
     }
-    // If not selectable, don't update the date
   };
+
+  const renderCalendar = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+
+    // Empty cells for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="p-2"></div>);
+    }
+
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = formatDate(year, month, day);
+      const selectable = isDateSelectable(dateStr);
+      const selected = date === dateStr;
+
+      days.push(
+        <button
+          key={day}
+          onClick={() => handleDateSelect(dateStr)}
+          disabled={!selectable}
+          className={`p-3 text-center rounded-lg font-medium text-sm transition-colors ${
+            selected
+              ? "bg-brand-gold text-brand-blue border-2 border-brand-gold"
+              : selectable
+                ? "bg-white border-2 border-gray-200 text-brand-blue hover:border-brand-gold cursor-pointer"
+                : "bg-gray-100 text-gray-400 border-2 border-gray-100 cursor-not-allowed"
+          }`}
+        >
+          {day}
+        </button>
+      );
+    }
+
+    return days;
+  };
+
+  const monthName = currentMonth.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
 
   if (success) {
     return (
@@ -327,30 +383,45 @@ function BookingInner() {
         {step === 2 && (
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-6">Select Date & Time</h2>
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-brand-blue mb-2">
-                <Calendar className="inline h-4 w-4 mr-1" />
-                Choose a date
-              </label>
-              <input
-                type="date"
-                value={date}
-                min={getMinDate()}
-                max={getMaxDate()}
-                onChange={handleDateChange}
-                style={inputStyle}
-                className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-brand-blue focus:outline-none w-full sm:w-auto disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
-              <p className="mt-1 text-xs text-gray-400">Availability shown up to {bookingWindowDays} days in advance</p>
+            
+            {/* Calendar */}
+            <div className="mb-6 bg-white border-2 border-gray-200 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <button
+                  onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                  className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  ← Previous
+                </button>
+                <h3 className="text-lg font-bold text-brand-blue">{monthName}</h3>
+                <button
+                  onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                  className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Next →
+                </button>
+              </div>
+
+              {/* Day headers */}
+              <div className="grid grid-cols-7 gap-2 mb-2">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                  <div key={day} className="p-2 text-center text-xs font-bold text-gray-500">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar grid */}
+              <div className="grid grid-cols-7 gap-2">{renderCalendar()}</div>
             </div>
 
-            {date && isDateSelectable(date) && (
+            {date && (
               <div>
                 {loadingSlots && <p className="text-sm text-gray-500">Loading available slots…</p>}
                 {!loadingSlots && slots.length === 0 && <p className="text-sm text-gray-500">No available slots for this date.</p>}
                 {!loadingSlots && slots.length > 0 && (
                   <div>
-                    <p className="text-sm font-semibold text-brand-blue mb-3">Available slots</p>
+                    <p className="text-sm font-semibold text-brand-blue mb-3">Available slots for {date}</p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {slots.map((s) => (
                         <button
