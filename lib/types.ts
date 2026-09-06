@@ -9,6 +9,7 @@ export interface Treatment {
   description: string;
   durations: TreatmentDuration[];
   active: boolean;
+  image_url?: string;
   created_at?: string;
 }
 
