@@ -624,6 +624,7 @@ export default function AdminPage() {
 
         {activeTab === "settings" && (
           <div className="space-y-6">
+            {/* Hero Image Settings */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Image</h2>
               {heroError && <p className="text-sm text-red-600 mb-4">{heroError}</p>}
@@ -658,17 +659,13 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <Link href="/admin/availability" className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-bold text-brand-blue mb-2">Working Hours</h3>
-                <p className="text-sm text-gray-600">Set your working days and hours</p>
-              </Link>
-
-              <Link href="/admin/settings" className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-bold text-brand-blue mb-2">Booking Settings</h3>
-                <p className="text-sm text-gray-600">Configure booking window and buffer time</p>
-              </Link>
-            </div>
+            {/* Booking & Availability Settings Link */}
+            <Link href="/admin/settings" className="block bg-gradient-to-r from-brand-blue to-blue-700 rounded-2xl border border-gray-100 p-8 shadow-sm hover:shadow-lg transition-shadow">
+              <div className="text-white">
+                <h3 className="text-2xl font-bold mb-2">⚙️ Booking & Availability Settings</h3>
+                <p className="text-blue-100">Configure working hours, booking window, and buffer time between appointments</p>
+              </div>
+            </Link>
           </div>
         )}
       </div>
