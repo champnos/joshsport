@@ -223,14 +223,14 @@ function BookingInner() {
       </div>
 
       <div className="bg-brand-blue/5 border-b border-brand-blue/10 px-4 py-4">
-        <div className="mx-auto max-w-3xl flex items-center gap-1 overflow-x-auto">
+        <div className="mx-auto max-w-3xl flex flex-wrap items-center justify-center gap-2">
           {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center gap-1 shrink-0">
+            <div key={s} className="flex items-center gap-2">
               <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-200 text-gray-600"}`}>
                 {i + 1 < step ? "✓" : i + 1}
               </div>
-              <span className={`text-xs hidden sm:block ${i + 1 === step ? "text-brand-blue font-semibold" : "text-gray-400"}`}>{s}</span>
-              {i < STEPS.length - 1 && <div className="h-px w-4 bg-gray-200 mx-1" />}
+              <span className={`text-xs ${i + 1 === step ? "text-brand-blue font-semibold" : "text-gray-400"}`}>{s}</span>
+              {i < STEPS.length - 1 && <div className="h-px w-2 bg-gray-200" />}
             </div>
           ))}
         </div>
