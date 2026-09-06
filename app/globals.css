@@ -27,6 +27,37 @@ body {
 @layer base {
   h1, h2, h3, h4 { @apply text-balance; }
   p { @apply text-pretty; }
+  
+  /* Fix date input text visibility - target webkit date picker internals */
+  input[type="date"],
+  input[type="tel"] {
+    color-scheme: light;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit {
+    color: #1f2937;
+    padding: 0.5rem;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit-text {
+    color: #1f2937;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit-day-field,
+  input[type="date"]::-webkit-datetime-edit-month-field,
+  input[type="date"]::-webkit-datetime-edit-year-field {
+    color: #1f2937;
+  }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(0.8);
+  }
+  
+  input[type="tel"],
+  input[type="text"] {
+    color: #1f2937;
+  }
 }
 
 @layer utilities {
