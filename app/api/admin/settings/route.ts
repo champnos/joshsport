@@ -5,13 +5,13 @@ import type { NextRequest } from "next/server";
 
 export async function GET() {
   try {
-    const { data: bookingData } = await supabase
+    const { data: bookingData, error: bookingError } = await supabase
       .from("settings")
       .select("value")
       .eq("key", "booking_window_days")
       .single();
 
-    const { data: bufferData } = await supabase
+    const { data: bufferData, error: bufferError } = await supabase
       .from("settings")
       .select("value")
       .eq("key", "buffer_mins_after_booking")
@@ -47,23 +47,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Update or insert booking_window_days
-    await supabase
+    // Update booking_window_days
+    const { error: error1 } = await supabase
       .from("settings")
-      .upsert({
-        key: "booking_window_days",
-        value: booking_window_days.toString(),
-      })
+      .update({ value: booking_window_days.toString() })
       .eq("key", "booking_window_days");
 
-    // Update or insert buffer_mins_after_booking
-    await supabase
+    if (error1) {
+      // If update fails (row doesn't exist), insert it
+      await supabase
+        .from("settings")
+        .insert({ key: "booking_window_days", value: booking_window_days.toString() });
+    }
+
+    // Update buffer_mins_after_booking
+    const { error: error2 } = await supabase
       .from("settings")
-      .upsert({
-        key: "buffer_mins_after_booking",
-        value: buffer_mins_after_booking.toString(),
-      })
+      .update({ value: buffer_mins_after_booking.toString() })
       .eq("key", "buffer_mins_after_booking");
+
+    if (error2) {
+      // If update fails (row doesn't exist), insert it
+      await supabase
+        .from("settings")
+        .insert({ key: "buffer_mins_after_booking", value: buffer_mins_after_booking.toString() });
+    }
 
     return NextResponse.json(
       {
