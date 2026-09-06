@@ -18,7 +18,12 @@ export interface ExistingBooking {
   duration_mins: number;
 }
 
-export function getAvailableSlots(date: string, duration: number, existingBookings: ExistingBooking[] = []) {
+export function getAvailableSlots(
+  date: string,
+  duration: number,
+  existingBookings: ExistingBooking[] = [],
+  bufferMinsAfterBooking: number = 30
+) {
   if (!date || !Number.isFinite(duration) || duration <= 0) return [];
 
   const startOfDay = toMinutes("09:00");
@@ -29,9 +34,10 @@ export function getAvailableSlots(date: string, duration: number, existingBookin
     const slotEnd = slot + duration;
     if (slotEnd > endOfDay) continue;
 
+    // Check for overlaps with existing bookings + their buffer time
     const blocked = existingBookings.some((b) => {
       const bs = toMinutes(b.start_time);
-      const be = bs + b.duration_mins;
+      const be = bs + b.duration_mins + bufferMinsAfterBooking; // Include buffer
       return overlaps(slot, slotEnd, bs, be);
     });
 
