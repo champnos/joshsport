@@ -37,12 +37,6 @@ function getMinDate() {
   return new Date().toISOString().split("T")[0];
 }
 
-function getMaxDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return d.toISOString().split("T")[0];
-}
-
 function formatTime(t: string) {
   const [h, m] = t.split(":").map(Number);
   const period = h >= 12 ? "pm" : "am";
@@ -63,6 +57,8 @@ function BookingInner() {
   const [treatmentId, setTreatmentId] = useState(searchParams.get("treatment") ?? "");
   const [duration, setDuration] = useState<number | null>(null);
 
+  const [bookingWindowDays, setBookingWindowDays] = useState(30);
+  const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("");
@@ -91,22 +87,37 @@ function BookingInner() {
   const [success, setSuccess] = useState(false);
   const [bookingRef, setBookingRef] = useState("");
 
-  // Load treatments from DB on mount
+  // Load treatments, settings, and working dates on mount
   useEffect(() => {
-    const loadTreatments = async () => {
+    const loadData = async () => {
       try {
-        const res = await fetch("/api/treatments");
-        if (res.ok) {
-          const data = await res.json();
-          setTreatments(data);
+        // Load treatments
+        const treatmentsRes = await fetch("/api/treatments");
+        if (treatmentsRes.ok) {
+          const treatmentsData = await treatmentsRes.json();
+          setTreatments(treatmentsData);
         }
-      } catch {
-        console.error("Failed to load treatments");
+
+        // Load booking window settings
+        const settingsRes = await fetch("/api/admin/settings");
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          setBookingWindowDays(settingsData.booking_window_days || 30);
+        }
+
+        // Load working dates
+        const datesRes = await fetch("/api/working-dates");
+        if (datesRes.ok) {
+          const datesData = await datesRes.json();
+          setWorkingDates(new Set(datesData.dates || []));
+        }
+      } catch (err) {
+        console.error("Failed to load data:", err);
       } finally {
         setTreatmentsLoading(false);
       }
     };
-    loadTreatments();
+    loadData();
   }, []);
 
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
@@ -198,6 +209,17 @@ function BookingInner() {
     }
   };
 
+  // Check if a date string is selectable (has working availability)
+  const isDateSelectable = (dateStr: string) => {
+    return workingDates.has(dateStr);
+  };
+
+  const getMaxDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + bookingWindowDays);
+    return d.toISOString().split("T")[0];
+  };
+
   if (success) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
@@ -226,7 +248,7 @@ function BookingInner() {
         <div className="mx-auto max-w-3xl flex flex-wrap items-center justify-center gap-2">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-200 text-gray-600"}`}>
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-200 text-gray-400"}`}>
                 {i + 1 < step ? "✓" : i + 1}
               </div>
               <span className={`text-xs ${i + 1 === step ? "text-brand-blue font-semibold" : "text-gray-400"}`}>{s}</span>
@@ -271,7 +293,7 @@ function BookingInner() {
                         <button
                           key={d.mins}
                           onClick={() => setDuration(d.mins)}
-                          className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                          className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
                         >
                           {d.mins} mins · £{d.price}
                         </button>
@@ -310,22 +332,25 @@ function BookingInner() {
                 style={inputStyle}
                 className="border-2 border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-brand-blue focus:outline-none w-full sm:w-auto"
               />
-              <p className="mt-1 text-xs text-gray-400">Availability shown up to 2 weeks in advance</p>
+              <p className="mt-1 text-xs text-gray-400">Availability shown up to {bookingWindowDays} days in advance</p>
+              {date && !isDateSelectable(date) && (
+                <p className="mt-2 text-xs text-red-600">This date is not available. Please select a different date.</p>
+              )}
             </div>
 
-            {date && (
+            {date && isDateSelectable(date) && (
               <div>
                 {loadingSlots && <p className="text-sm text-gray-500">Loading available slots…</p>}
                 {!loadingSlots && slots.length === 0 && <p className="text-sm text-gray-500">No available slots for this date.</p>}
                 {!loadingSlots && slots.length > 0 && (
                   <div>
-                    <p className="text-sm font-semibold text-brand-blue mb-3">Available slots (9am – 8pm)</p>
+                    <p className="text-sm font-semibold text-brand-blue mb-3">Available slots</p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {slots.map((s) => (
                         <button
                           key={s}
                           onClick={() => setStartTime(s)}
-                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
                         >
                           {formatTime(s)}
                         </button>
@@ -342,7 +367,7 @@ function BookingInner() {
               </button>
               <button
                 onClick={() => setStep(3)}
-                disabled={!date || !startTime}
+                disabled={!date || !startTime || !isDateSelectable(date)}
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next <ChevronRight className="h-4 w-4" />
@@ -486,7 +511,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryRecent(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
                     >
                       {opt}
                     </button>
@@ -514,7 +539,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryPrevious(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-700 hover:border-brand-blue"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
                     >
                       {opt}
                     </button>
