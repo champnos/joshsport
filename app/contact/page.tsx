@@ -171,8 +171,8 @@ export default function ContactPage() {
         <div className="mx-auto mt-12 grid max-w-7xl gap-6 text-center md:grid-cols-3">
           <div className="rounded-xl border border-gray-200 p-6 bg-white">
             <h2 className="text-lg font-semibold text-brand-blue">📧 Email</h2>
-            <a href="mailto:hello@maggsymassagetherapy.com" className="mt-2 inline-block text-gray-700 hover:text-brand-blue">
-              hello@maggsymassagetherapy.com
+            <a href="mailto:contact@maggsymassagetherapy.com" className="mt-2 inline-block text-gray-700 hover:text-brand-blue">
+              contact@maggsymassagetherapy.com
             </a>
           </div>
           <div className="rounded-xl border border-gray-200 p-6 bg-white">
