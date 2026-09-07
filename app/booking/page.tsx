@@ -86,7 +86,6 @@ function BookingInner() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [bookingRef, setBookingRef] = useState("");
 
   // Load treatments, settings, and working dates on mount
@@ -317,20 +316,6 @@ function BookingInner() {
     month: "long",
     year: "numeric",
   });
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <CheckCircle2 className="mx-auto h-16 w-16 text-green-500 mb-6" />
-          <h1 className="text-2xl font-bold text-brand-blue">Booking Confirmed!</h1>
-          <p className="mt-3 text-gray-600">Your booking request has been received and payment processed. Josh will be in touch to confirm your appointment.</p>
-          {bookingRef && <p className="mt-4 text-sm text-gray-400">Reference: <span className="font-mono font-medium">{bookingRef}</span></p>}
-          <Link href="/" className="mt-8 inline-block bg-brand-gold text-brand-blue font-bold px-8 py-3 rounded-lg hover:opacity-90">Back to Home</Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white">
