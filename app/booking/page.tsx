@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 
 interface DurationOption {
@@ -86,7 +85,6 @@ function BookingInner() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [bookingRef, setBookingRef] = useState("");
 
   // Load treatments, settings, and working dates on mount
   useEffect(() => {
@@ -206,8 +204,6 @@ function BookingInner() {
         setSubmitting(false);
         return;
       }
-
-      setBookingRef(bookingData.id ?? "confirmed");
 
       // Now redirect to Stripe checkout
       const checkoutRes = await fetch("/api/stripe/checkout", {
