@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
-import { loadStripe } from "@stripe/js";
+import { loadStripe } from "@stripe/stripe-js";
 
 interface DurationOption {
   mins: number;
