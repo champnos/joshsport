@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { loadStripe } from "@stripe/js";
 
 interface DurationOption {
   mins: number;
@@ -122,6 +123,7 @@ function BookingInner() {
   }, []);
 
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
+  const selectedPrice = selectedTreatment?.durations.find((d) => d.mins === duration)?.price || 0;
 
   useEffect(() => {
     if (selectedTreatment && selectedTreatment.durations.length === 1) {
@@ -165,12 +167,13 @@ function BookingInner() {
 
   const hasNonNoneConditions = medicalConditions.some((c) => c !== "None of the above");
 
-  const handleSubmit = async () => {
+  const handlePayment = async () => {
     if (!selectedTreatment || !duration) return;
     setSubmitting(true);
     setError("");
     try {
-      const payload = {
+      // Create booking first
+      const bookingPayload = {
         treatment_id: treatmentId,
         treatment_name: selectedTreatment.name,
         duration_mins: duration,
@@ -191,21 +194,51 @@ function BookingInner() {
         injury_previous: injuryPrevious ?? false,
         injury_previous_notes: injuryPreviousNotes,
       };
-      const res = await fetch("/api/bookings", {
+
+      const bookingRes = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(bookingPayload),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Unable to submit booking. Please try again.");
+
+      const bookingData = await bookingRes.json();
+      if (!bookingRes.ok) {
+        setError(bookingData.error ?? "Unable to create booking. Please try again.");
+        setSubmitting(false);
         return;
       }
-      setBookingRef(data.id ?? "confirmed");
-      setSuccess(true);
-    } catch {
-      setError("Unable to submit booking. Please try again.");
-    } finally {
+
+      setBookingRef(bookingData.id ?? "confirmed");
+
+      // Now redirect to Stripe checkout
+      const checkoutRes = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          price: selectedPrice,
+          treatment_name: selectedTreatment.name,
+          duration_mins: duration,
+          date,
+          start_time: startTime,
+          booking_id: bookingData.id,
+        }),
+      });
+
+      const checkoutData = await checkoutRes.json();
+      if (!checkoutRes.ok) {
+        setError(checkoutData.error ?? "Failed to initiate payment. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Redirect to Stripe
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+      if (stripe && checkoutData.sessionId) {
+        await stripe.redirectToCheckout({ sessionId: checkoutData.sessionId });
+      }
+    } catch (err) {
+      console.error("Payment error:", err);
+      setError("Unable to process payment. Please try again.");
       setSubmitting(false);
     }
   };
@@ -291,7 +324,7 @@ function BookingInner() {
         <div className="text-center max-w-md">
           <CheckCircle2 className="mx-auto h-16 w-16 text-green-500 mb-6" />
           <h1 className="text-2xl font-bold text-brand-blue">Booking Confirmed!</h1>
-          <p className="mt-3 text-gray-600">Your booking request has been received. Josh will be in touch to confirm your appointment.</p>
+          <p className="mt-3 text-gray-600">Your booking request has been received and payment processed. Josh will be in touch to confirm your appointment.</p>
           {bookingRef && <p className="mt-4 text-sm text-gray-400">Reference: <span className="font-mono font-medium">{bookingRef}</span></p>}
           <Link href="/" className="mt-8 inline-block bg-brand-gold text-brand-blue font-bold px-8 py-3 rounded-lg hover:opacity-90">Back to Home</Link>
         </div>
@@ -313,7 +346,7 @@ function BookingInner() {
         <div className="mx-auto max-w-3xl flex flex-wrap items-center justify-center gap-2">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-200 text-gray-400"}`}>
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-200 text-gray-500"}`}>
                 {i + 1 < step ? "✓" : i + 1}
               </div>
               <span className={`text-xs ${i + 1 === step ? "text-brand-blue font-semibold" : "text-gray-400"}`}>{s}</span>
@@ -358,7 +391,7 @@ function BookingInner() {
                         <button
                           key={d.mins}
                           onClick={() => setDuration(d.mins)}
-                          className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
+                          className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
                         >
                           {d.mins} mins · £{d.price}
                         </button>
@@ -427,7 +460,7 @@ function BookingInner() {
                         <button
                           key={s}
                           onClick={() => setStartTime(s)}
-                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
+                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
                         >
                           {formatTime(s)}
                         </button>
@@ -588,7 +621,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryRecent(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
                     >
                       {opt}
                     </button>
@@ -616,7 +649,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryPrevious(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue/30"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
                     >
                       {opt}
                     </button>
@@ -667,7 +700,7 @@ function BookingInner() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Price</span>
-                <span className="font-bold text-brand-gold text-base">£{selectedTreatment.durations.find((d) => d.mins === duration)?.price}</span>
+                <span className="font-bold text-brand-gold text-base">£{selectedPrice}</span>
               </div>
               <hr className="border-brand-blue/10" />
               <div className="flex justify-between text-sm">
@@ -690,13 +723,12 @@ function BookingInner() {
             </div>
 
             <button
-              onClick={handleSubmit}
+              onClick={handlePayment}
               disabled={submitting}
               className="mt-6 w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {submitting ? "Submitting…" : "Confirm & Proceed to Payment"}
+              {submitting ? "Processing Payment…" : `Pay £${selectedPrice} & Confirm Booking`}
             </button>
-            <p className="mt-2 text-xs text-center text-gray-400">Payment processing coming soon. Booking will be confirmed pending payment.</p>
 
             <div className="mt-6 flex justify-start">
               <button onClick={() => setStep(6)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
