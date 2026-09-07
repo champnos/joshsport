@@ -227,7 +227,7 @@ function BookingInner() {
       }
 
       // Redirect to Stripe
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
       if (stripe && checkoutData.sessionId) {
         await stripe.redirectToCheckout({ sessionId: checkoutData.sessionId });
       }
@@ -327,7 +327,7 @@ function BookingInner() {
         <div className="mx-auto max-w-3xl flex flex-wrap items-center justify-center gap-2">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-200 text-gray-500"}`}>
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-brand-blue text-white" : "bg-gray-200 text-gray-600"}`}>
                 {i + 1 < step ? "✓" : i + 1}
               </div>
               <span className={`text-xs ${i + 1 === step ? "text-brand-blue font-semibold" : "text-gray-400"}`}>{s}</span>
@@ -372,7 +372,7 @@ function BookingInner() {
                         <button
                           key={d.mins}
                           onClick={() => setDuration(d.mins)}
-                          className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
+                          className={`px-5 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${duration === d.mins ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-gold"}`}
                         >
                           {d.mins} mins · £{d.price}
                         </button>
@@ -441,7 +441,7 @@ function BookingInner() {
                         <button
                           key={s}
                           onClick={() => setStartTime(s)}
-                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
+                          className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${startTime === s ? "bg-brand-gold border-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-gold"}`}
                         >
                           {formatTime(s)}
                         </button>
@@ -602,7 +602,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryRecent(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryRecent === (opt === "Yes") && injuryRecent !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-gold"}`}
                     >
                       {opt}
                     </button>
@@ -630,7 +630,7 @@ function BookingInner() {
                     <button
                       key={opt}
                       onClick={() => setInjuryPrevious(opt === "Yes")}
-                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
+                      className={`px-6 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all ${injuryPrevious === (opt === "Yes") && injuryPrevious !== null ? "border-brand-gold bg-brand-gold text-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-gold"}`}
                     >
                       {opt}
                     </button>
