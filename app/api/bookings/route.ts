@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { getAvailableSlots } from "@/lib/availability";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(request: NextRequest) {
   try {
@@ -106,6 +109,71 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase.from("bookings").insert([insertPayload]).select().single();
     if (error) throw error;
+
+    // Format time for email
+    const formatTime = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      const period = h >= 12 ? "pm" : "am";
+      const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      return `${hour}:${m.toString().padStart(2, "0")}${period}`;
+    };
+
+    // Send email to Josh with booking details
+    try {
+      await resend.emails.send({
+        from: "bookings@maggsymassagetherapy.com",
+        to: process.env.JOSH_EMAIL || "josh@maggsymassagetherapy.com",
+        subject: `New Booking: ${normalizedBooking.client_name} - ${normalizedBooking.treatment_name}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #003366; margin-bottom: 20px;">New Booking Received</h2>
+            
+            <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Booking Details</h3>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <p><strong>Treatment:</strong> ${normalizedBooking.treatment_name}</p>
+              <p><strong>Duration:</strong> ${normalizedBooking.duration_mins} minutes</p>
+              <p><strong>Date:</strong> ${normalizedBooking.date}</p>
+              <p><strong>Time:</strong> ${formatTime(normalizedBooking.start_time)}</p>
+            </div>
+
+            <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Client Details</h3>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <p><strong>Name:</strong> ${normalizedBooking.client_name}</p>
+              <p><strong>Date of Birth:</strong> ${normalizedBooking.client_dob}</p>
+              <p><strong>Phone:</strong> ${normalizedBooking.client_phone}</p>
+              <p><strong>Address:</strong> ${normalizedBooking.client_address}, ${normalizedBooking.client_postcode}</p>
+            </div>
+
+            <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Emergency Contact</h3>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <p><strong>Name:</strong> ${normalizedBooking.emergency_name}</p>
+              <p><strong>Relationship:</strong> ${normalizedBooking.emergency_relationship}</p>
+              <p><strong>Phone:</strong> ${normalizedBooking.emergency_phone}</p>
+            </div>
+
+            <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Medical History</h3>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <p><strong>Conditions:</strong> ${normalizedBooking.medical_conditions.join(", ") || "None reported"}</p>
+              ${normalizedBooking.medical_notes ? `<p><strong>Notes:</strong> ${normalizedBooking.medical_notes}</p>` : ""}
+            </div>
+
+            <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Injury History</h3>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <p><strong>Recent Injury/Surgery:</strong> ${normalizedBooking.injury_recent ? "Yes" : "No"}</p>
+              ${normalizedBooking.injury_recent_notes ? `<p><strong>Details:</strong> ${normalizedBooking.injury_recent_notes}</p>` : ""}
+              <p><strong>Previous Injuries:</strong> ${normalizedBooking.injury_previous ? "Yes" : "No"}</p>
+              ${normalizedBooking.injury_previous_notes ? `<p><strong>Details:</strong> ${normalizedBooking.injury_previous_notes}</p>` : ""}
+            </div>
+
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated booking notification from Maggy's Massage Therapy.</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Failed to send email:", emailError);
+      // Don't fail the booking if email fails
+    }
+
     return NextResponse.json(data, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Unable to create booking." }, { status: 500 });
