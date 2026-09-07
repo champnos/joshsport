@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       client_phone: typeof body.client_phone === "string" ? body.client_phone.trim() : "",
       client_address: typeof body.client_address === "string" ? body.client_address.trim() : "",
       client_postcode: typeof body.client_postcode === "string" ? body.client_postcode.trim() : "",
+      client_email: typeof body.client_email === "string" ? body.client_email.trim() : "",
       emergency_name: typeof body.emergency_name === "string" ? body.emergency_name.trim() : "",
       emergency_relationship: typeof body.emergency_relationship === "string" ? body.emergency_relationship.trim() : "",
       emergency_phone: typeof body.emergency_phone === "string" ? body.emergency_phone.trim() : "",
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       client_phone,
       client_address,
       client_postcode,
+      client_email,
     } = normalizedBooking;
 
     const dobMatch = client_dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -170,7 +172,51 @@ export async function POST(request: Request) {
         `,
       });
     } catch (emailError) {
-      console.error("Failed to send email:", emailError);
+      console.error("Failed to send email to Josh:", emailError);
+      // Don't fail the booking if email fails
+    }
+
+    // Send confirmation email to client
+    try {
+      await resend.emails.send({
+        from: "bookings@maggsymassagetherapy.com",
+        to: client_email,
+        subject: "Your Booking Confirmation - Maggy's Massage Therapy",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #003366; margin-bottom: 20px;">Booking Confirmed! ✅</h2>
+            <p style="color: #666; margin-bottom: 20px;">Hi ${normalizedBooking.client_name},</p>
+            <p style="color: #666; margin-bottom: 20px;">Your massage therapy booking has been confirmed. Here are your booking details:</p>
+            
+            <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Your Appointment</h3>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <p><strong>Treatment:</strong> ${normalizedBooking.treatment_name}</p>
+              <p><strong>Duration:</strong> ${normalizedBooking.duration_mins} minutes</p>
+              <p><strong>Date:</strong> ${normalizedBooking.date}</p>
+              <p><strong>Time:</strong> ${formatTime(normalizedBooking.start_time)}</p>
+              <p><strong>Location:</strong> ${normalizedBooking.client_address}, ${normalizedBooking.client_postcode}</p>
+            </div>
+
+            <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">What's Next?</h3>
+            <ul style="color: #666;">
+              <li>Our therapist will arrive at your location at the scheduled time</li>
+              <li>If you need to reschedule or cancel, please contact us as soon as possible</li>
+              <li>For any questions, feel free to reach out before your appointment</li>
+            </ul>
+
+            <div style="background-color: #e8f4f8; border-left: 4px solid #003366; padding: 15px; margin: 20px 0;">
+              <p style="color: #003366; margin: 0;"><strong>Questions?</strong> Contact us at info@maggsymassagetherapy.com or call for support.</p>
+            </div>
+
+            <p style="color: #666; margin-top: 30px;">We look forward to seeing you!</p>
+            <p style="color: #666; font-weight: bold;">Maggy's Massage Therapy Team</p>
+
+            <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 15px;">This is an automated confirmation email. Please do not reply directly to this email.</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Failed to send confirmation email to client:", emailError);
       // Don't fail the booking if email fails
     }
 
