@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Booking, Treatment, TreatmentDuration } from "@/lib/types";
+import BookingsDashboard from "@/components/admin/BookingsDashboard";
+import { Treatment, TreatmentDuration } from "@/lib/types";
 
 interface TreatmentFormState {
   id?: string;
@@ -20,22 +21,14 @@ const emptyForm: TreatmentFormState = {
   active: true,
 };
 
-function getStatusColor(status: string) {
-  if (status === "confirmed") return "bg-green-100 text-green-800";
-  if (status === "cancelled") return "bg-red-100 text-red-800";
-  return "bg-yellow-100 text-yellow-800";
-}
-
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [isAuthed, setIsAuthed] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState("");
   const [activeTab, setActiveTab] = useState<"bookings" | "treatments" | "settings">("bookings");
-  const [bookings, setBookings] = useState<Booking[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
-  const [loading, setLoading] = useState(false);
   const [loadingTreatments, setLoadingTreatments] = useState(false);
-  const [error, setError] = useState("");
   const [savingTreatment, setSavingTreatment] = useState(false);
   const [treatmentError, setTreatmentError] = useState("");
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
@@ -61,23 +54,6 @@ export default function AdminPage() {
     () => ({ "x-admin-password": password, "Content-Type": "application/json" }),
     [password],
   );
-
-  const loadBookings = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/bookings", { headers });
-      if (!res.ok) {
-        const bookingError = await res.json().catch(() => null);
-        throw new Error(bookingError?.error ?? "Failed to load bookings.");
-      }
-      setBookings(await res.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load bookings.");
-    } finally {
-      setLoading(false);
-    }
-  }, [headers]);
 
   const loadTreatments = useCallback(async () => {
     setLoadingTreatments(true);
@@ -119,14 +95,53 @@ export default function AdminPage() {
   }, [headers]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const verifyStoredPassword = async () => {
+      const savedPassword = localStorage.getItem("adminToken") || "";
+      if (!savedPassword) {
+        if (!cancelled) setCheckingAuth(false);
+        return;
+      }
+
+      setPassword(savedPassword);
+
+      try {
+        const res = await fetch("/api/admin/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: savedPassword }),
+        });
+
+        if (cancelled) return;
+
+        if (res.ok) {
+          setIsAuthed(true);
+          setAuthError("");
+        } else {
+          localStorage.removeItem("adminToken");
+          setPassword("");
+        }
+      } finally {
+        if (!cancelled) setCheckingAuth(false);
+      }
+    };
+
+    void verifyStoredPassword();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (isAuthed) {
       localStorage.setItem("adminToken", password);
-      void loadBookings();
       void loadTreatments();
       void loadHeroImage();
       void loadSocials();
     }
-  }, [isAuthed, loadBookings, loadTreatments, loadHeroImage, loadSocials, password]);
+  }, [isAuthed, loadTreatments, loadHeroImage, loadSocials, password]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -144,21 +159,18 @@ export default function AdminPage() {
     if (res.ok) {
       setIsAuthed(true);
       setAuthError("");
+      setCheckingAuth(false);
     } else {
       setAuthError("Incorrect password.");
     }
   };
 
-  const updateBookingStatus = async (id: string, status: Booking["status"]) => {
-    const res = await fetch(`/api/bookings/${id}`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({ status }),
-    });
-    if (res.ok) {
-      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-    }
-  };
+  const handleUnauthorized = useCallback(() => {
+    localStorage.removeItem("adminToken");
+    setPassword("");
+    setIsAuthed(false);
+    setAuthError("Your admin session expired. Please log in again.");
+  }, []);
 
   const toggleTreatmentActive = async (treatment: Treatment) => {
     const res = await fetch(`/api/treatments/${treatment.id}`, {
@@ -395,6 +407,16 @@ export default function AdminPage() {
     }
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-brand-blue flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-xl">
+          <p className="text-sm font-semibold text-brand-blue">Checking admin access…</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthed) {
     return (
       <div className="min-h-screen bg-brand-blue flex items-center justify-center px-4">
@@ -439,56 +461,10 @@ export default function AdminPage() {
         </div>
 
         {activeTab === "bookings" && (
-          <>
-            {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
-            {loading && <p className="text-gray-500 text-sm">Loading bookings…</p>}
-            {!loading && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-bold text-brand-blue">{bookings.length} Booking(s)</h2>
-                {bookings.length === 0 && <p className="text-gray-500 text-sm">No bookings yet.</p>}
-                {bookings.map((b) => (
-                  <div key={b.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-bold text-brand-blue">{b.client_name}</h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${getStatusColor(b.status)}`}>{b.status}</span>
-                        </div>
-                        <p className="text-sm text-gray-600">{b.treatment_name} · {b.duration_mins} mins</p>
-                        <p className="text-sm text-gray-600">{b.date} at {b.start_time}</p>
-                        <p className="text-sm text-gray-500 mt-1">{b.client_address}, {b.client_postcode}</p>
-                        <p className="text-sm text-gray-500">{b.client_phone}</p>
-                        {b.medical_conditions.length > 0 && !b.medical_conditions.includes("None of the above") && (
-                          <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 mt-2">
-                            ⚠ Medical: {b.medical_conditions.join(", ")}
-                            {b.medical_notes && ` — ${b.medical_notes}`}
-                          </p>
-                        )}
-                        {b.injury_recent && (
-                          <p className="text-xs text-red-700 bg-red-50 rounded px-2 py-1 mt-1">Recent injury: {b.injury_recent_notes}</p>
-                        )}
-                        {b.injury_previous && (
-                          <p className="text-xs text-orange-700 bg-orange-50 rounded px-2 py-1 mt-1">Previous injuries: {b.injury_previous_notes}</p>
-                        )}
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
-                        {(["pending", "confirmed", "cancelled"] as const).map((status) => (
-                          <button
-                            key={status}
-                            onClick={() => void updateBookingStatus(b.id, status)}
-                            disabled={b.status === status}
-                            className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors ${b.status === status ? "bg-brand-blue text-white border-brand-blue" : "border-gray-200 text-gray-600 hover:border-brand-blue"}`}
-                          >
-                            {status}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+          <BookingsDashboard
+            adminToken={password}
+            onUnauthorized={handleUnauthorized}
+          />
         )}
 
         {activeTab === "treatments" && (

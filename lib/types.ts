@@ -21,6 +21,7 @@ export interface Booking {
   date: string;
   start_time: string;
   client_name: string;
+  client_email?: string;
   client_dob: string;
   client_phone: string;
   client_address: string;
@@ -34,6 +35,6 @@ export interface Booking {
   injury_recent_notes: string;
   injury_previous: boolean;
   injury_previous_notes: string;
-  status: "pending" | "confirmed" | "cancelled";
+  status: "pending" | "confirmed" | "completed" | "cancelled";
   created_at?: string;
 }
