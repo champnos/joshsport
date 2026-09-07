@@ -66,6 +66,7 @@ function BookingInner() {
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [clientDob, setClientDob] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [clientAddress, setClientAddress] = useState("");
@@ -177,6 +178,7 @@ function BookingInner() {
         date,
         start_time: startTime,
         client_name: clientName,
+        client_email: clientEmail,
         client_dob: clientDob,
         client_phone: clientPhone,
         client_address: clientAddress,
@@ -476,6 +478,7 @@ function BookingInner() {
             <div className="space-y-4">
               {[
                 { label: "Full Name", value: clientName, setter: setClientName, type: "text", placeholder: "Your full name" },
+                { label: "Email Address", value: clientEmail, setter: setClientEmail, type: "email", placeholder: "your@email.com" },
                 { label: "Date of Birth", value: clientDob, setter: setClientDob, type: "date", placeholder: "" },
                 { label: "Phone Number", value: clientPhone, setter: setClientPhone, type: "tel", placeholder: "07..." },
                 { label: "Home Address", value: clientAddress, setter: setClientAddress, type: "text", placeholder: "Street address" },
@@ -500,7 +503,7 @@ function BookingInner() {
               </button>
               <button
                 onClick={() => setStep(4)}
-                disabled={!clientName || !clientDob || !clientPhone || !clientAddress || !clientPostcode}
+                disabled={!clientName || !clientEmail || !clientDob || !clientPhone || !clientAddress || !clientPostcode}
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next <ChevronRight className="h-4 w-4" />
@@ -696,6 +699,10 @@ function BookingInner() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Name</span>
                 <span className="font-semibold text-brand-blue">{clientName}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Email</span>
+                <span className="font-semibold text-brand-blue">{clientEmail}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Address</span>
