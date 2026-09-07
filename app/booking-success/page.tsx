@@ -20,7 +20,7 @@ function BookingSuccessInner() {
         </div>
 
         <div className="bg-brand-blue/5 border border-brand-blue/15 rounded-2xl p-6 mb-8">
-          <h3 className="text-lg font-bold text-brand-blue mb-4">What's next?</h3>
+          <h3 className="text-lg font-bold text-brand-blue mb-4">What&apos;s next?</h3>
           <ul className="space-y-3 text-gray-700">
             <li className="flex items-start gap-3">
               <span className="text-brand-gold font-bold">✓</span>
