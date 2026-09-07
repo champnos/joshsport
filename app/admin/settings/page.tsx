@@ -220,7 +220,7 @@ export default function SettingsPage() {
               type="email"
               value={settings.email || ""}
               onChange={(e) => handleSettingChange("email", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
               placeholder="contact@maggsymassagetherapy.com"
             />
           </div>
@@ -234,7 +234,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.instagram || ""}
               onChange={(e) => handleSettingChange("instagram", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
               placeholder="https://instagram.com/maggsymt"
             />
           </div>
@@ -248,7 +248,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.facebook || ""}
               onChange={(e) => handleSettingChange("facebook", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
               placeholder="https://facebook.com/..."
             />
           </div>
@@ -262,7 +262,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.tiktok || ""}
               onChange={(e) => handleSettingChange("tiktok", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
               placeholder="https://tiktok.com/..."
             />
           </div>
@@ -325,7 +325,7 @@ export default function SettingsPage() {
                 type="time"
                 value={settings.default_start_time}
                 onChange={(e) => handleSettingChange("default_start_time", e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
               />
             </div>
 
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                 type="time"
                 value={settings.default_end_time}
                 onChange={(e) => handleSettingChange("default_end_time", e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-brand-blue focus:outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
               />
             </div>
           </div>
@@ -376,7 +376,7 @@ export default function SettingsPage() {
                   max="90"
                   value={settings.booking_window_days}
                   onChange={(e) => handleSettingChange("booking_window_days", Number(e.target.value))}
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                 />
                 <span className="text-sm text-gray-600">days</span>
               </div>
@@ -410,7 +410,7 @@ export default function SettingsPage() {
                   step="5"
                   value={settings.buffer_mins_after_booking}
                   onChange={(e) => handleSettingChange("buffer_mins_after_booking", Number(e.target.value))}
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                 />
                 <span className="text-sm text-gray-600">mins</span>
               </div>
