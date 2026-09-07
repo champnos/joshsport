@@ -46,8 +46,6 @@ function formatTime(t: string) {
 
 const STEPS = ["Treatment", "Date & Time", "Your Details", "Emergency Contact", "Medical History", "Injury History", "Confirm & Pay"];
 
-const inputStyle = { color: "#1f2937 !important" } as React.CSSProperties;
-
 function BookingInner() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
@@ -491,8 +489,7 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
-                    style={inputStyle}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                   />
                 </div>
               ))}
@@ -528,8 +525,7 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
-                    style={inputStyle}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-brand-blue focus:outline-none"
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                   />
                 </div>
               ))}
@@ -574,8 +570,7 @@ function BookingInner() {
                   onChange={(e) => setMedicalNotes(e.target.value)}
                   rows={4}
                   placeholder="Describe your conditions..."
-                  style={inputStyle}
-                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-brand-blue focus:outline-none"
+                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                 />
               </div>
             )}
@@ -619,8 +614,7 @@ function BookingInner() {
                       onChange={(e) => setInjuryRecentNotes(e.target.value)}
                       rows={3}
                       placeholder="Describe injury/surgery..."
-                      style={inputStyle}
-                      className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-brand-blue focus:outline-none"
+                      className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                     />
                   </div>
                 )}
@@ -647,8 +641,7 @@ function BookingInner() {
                       onChange={(e) => setInjuryPreviousNotes(e.target.value)}
                       rows={3}
                       placeholder="Describe previous injuries..."
-                      style={inputStyle}
-                      className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-brand-blue focus:outline-none"
+                      className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                     />
                   </div>
                 )}
