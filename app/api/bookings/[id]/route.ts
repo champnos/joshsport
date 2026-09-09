@@ -1,43 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { getAvailableSlots } from "@/lib/availability";
+import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 
 interface RouteContext { params: { id: string } }
-
-async function getBookingSettings() {
-  try {
-    const { data: bufferData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "buffer_mins_after_booking")
-      .single();
-
-    const { data: startTimeData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "default_start_time")
-      .single();
-
-    const { data: endTimeData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "default_end_time")
-      .single();
-
-    return {
-      buffer_mins_after_booking: bufferData ? parseInt(bufferData.value) : 30,
-      default_start_time: startTimeData?.value || "09:00",
-      default_end_time: endTimeData?.value || "17:00",
-    };
-  } catch {
-    return {
-      buffer_mins_after_booking: 30,
-      default_start_time: "09:00",
-      default_end_time: "17:00",
-    };
-  }
-}
 
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
@@ -72,9 +38,11 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         return NextResponse.json({ error: "Booking not found." }, { status: 404 });
       }
 
+      await ensureRollingWorkingDates();
+
       const { data: workingDateData, error: workingDateError } = await supabase
         .from("working_dates")
-        .select("date")
+        .select("date, available, start_time, end_time, is_off, blocked_slots")
         .eq("date", nextDate)
         .single();
 
@@ -89,17 +57,14 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         .eq("date", nextDate)
         .neq("id", params.id)
         .neq("status", "cancelled");
-
       if (existingBookingsError) throw existingBookingsError;
-
       const settings = await getBookingSettings();
-      const availableSlots = getAvailableSlots(
+      const availableSlots = getBookableSlots(
         nextDate,
         booking.duration_mins,
+        workingDateData,
         existingBookings ?? [],
-        settings.buffer_mins_after_booking,
-        settings.default_start_time,
-        settings.default_end_time,
+        settings,
       );
 
       if (!availableSlots.includes(nextStartTime)) {

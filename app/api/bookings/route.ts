@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { getAvailableSlots } from "@/lib/availability";
+import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -96,13 +96,27 @@ export async function POST(request: Request) {
       );
     }
 
+    await ensureRollingWorkingDates();
+
+    const { data: workingDateData, error: workingDateError } = await supabase
+      .from("working_dates")
+      .select("date, available, start_time, end_time, is_off, blocked_slots")
+      .eq("date", date)
+      .single();
+
+    if (workingDateError && workingDateError.code !== "PGRST116") throw workingDateError;
+    if (!workingDateData) {
+      return NextResponse.json({ error: "Selected date is not available for bookings." }, { status: 409 });
+    }
+
     const { data: existingBookings } = await supabase
       .from("bookings")
       .select("start_time, duration_mins")
       .eq("date", date)
       .neq("status", "cancelled");
 
-    const available = getAvailableSlots(date, duration_mins, existingBookings ?? []);
+    const settings = await getBookingSettings();
+    const available = getBookableSlots(date, duration_mins, workingDateData, existingBookings ?? [], settings);
     if (!available.includes(start_time)) {
       return NextResponse.json({ error: "Selected time is no longer available." }, { status: 409 });
     }

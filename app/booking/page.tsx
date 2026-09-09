@@ -17,6 +17,12 @@ interface TreatmentOption {
   durations: DurationOption[];
 }
 
+interface WorkingDateSummary {
+  date: string;
+  available: boolean;
+  is_off: boolean;
+}
+
 const MEDICAL_CONDITIONS_FALLBACK = [
   "Heart conditions",
   "High or low blood pressure",
@@ -107,7 +113,12 @@ function BookingInner() {
         const datesRes = await fetch("/api/working-dates");
         if (datesRes.ok) {
           const datesData = await datesRes.json();
-          setWorkingDates(new Set(datesData.dates || []));
+          const availableDates = Array.isArray(datesData.hours)
+            ? datesData.hours
+                .filter((workingDate: WorkingDateSummary) => workingDate.available && !workingDate.is_off)
+                .map((workingDate: WorkingDateSummary) => workingDate.date)
+            : datesData.dates || [];
+          setWorkingDates(new Set(availableDates));
         }
       } catch (err) {
         console.error("Failed to load data:", err);
