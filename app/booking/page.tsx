@@ -20,7 +20,6 @@ interface TreatmentOption {
 interface WorkingDateSummary {
   date: string;
   available: boolean;
-  is_off: boolean;
 }
 
 const MEDICAL_CONDITIONS_FALLBACK = [
@@ -115,7 +114,7 @@ function BookingInner() {
           const datesData = await datesRes.json();
           const availableDates = Array.isArray(datesData.hours)
             ? datesData.hours
-                .filter((workingDate: WorkingDateSummary) => workingDate.available && !workingDate.is_off)
+                .filter((workingDate: WorkingDateSummary) => workingDate.available)
                 .map((workingDate: WorkingDateSummary) => workingDate.date)
             : datesData.dates || [];
           setWorkingDates(new Set(availableDates));

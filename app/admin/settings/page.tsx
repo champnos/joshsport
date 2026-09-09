@@ -19,7 +19,6 @@ interface DateHours {
   available: boolean;
   start_time: string | null;
   end_time: string | null;
-  is_off: boolean;
   blocked_slots: string[]; // Array of time ranges like "14:00-15:30"
   booked_slots?: string[];
 }
@@ -94,7 +93,6 @@ export default function SettingsPage() {
               available: Boolean(h.available),
               start_time: h.start_time ?? null,
               end_time: h.end_time ?? null,
-              is_off: Boolean(h.is_off),
               blocked_slots: Array.isArray(h.blocked_slots) ? h.blocked_slots : [],
               booked_slots: Array.isArray(h.booked_slots) ? h.booked_slots : [],
             });
@@ -118,7 +116,6 @@ export default function SettingsPage() {
     available: false,
     start_time: settings.default_start_time,
     end_time: settings.default_end_time,
-    is_off: false,
     blocked_slots: [],
     booked_slots: [],
   });
@@ -280,12 +277,10 @@ export default function SettingsPage() {
             isSelected
               ? "ring-2 ring-brand-blue bg-brand-gold text-brand-blue"
               : isWorking
-              ? hours.is_off
-                ? "bg-red-100 text-red-600"
-                : "bg-brand-gold text-brand-blue"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-brand-gold text-brand-blue"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
-          title={hours.is_off ? "Day off" : isWorking ? `${hours.start_time}-${hours.end_time}` : "Unavailable"}
+          title={isWorking ? `${hours.start_time}-${hours.end_time}` : "Unavailable"}
         >
           {day}
         </button>
@@ -373,7 +368,7 @@ export default function SettingsPage() {
       {/* Working Dates Calendar with Flexible Hours */}
       <div>
         <h2 className="text-2xl font-bold text-brand-blue mb-2">Manage Your Availability</h2>
-        <p className="text-gray-600 text-sm mb-6">Select a date to toggle whether it is available, adjust hours, block time slots, or mark it as a full day off.</p>
+        <p className="text-gray-600 text-sm mb-6">Select a date to toggle whether it is available, adjust hours, or block time slots.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Calendar */}
@@ -412,10 +407,6 @@ export default function SettingsPage() {
                 <span>Available</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-100 border border-red-600 rounded"></div>
-                <span>Day Off</span>
-              </div>
-              <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-gray-100 rounded"></div>
                 <span>Unavailable</span>
               </div>
@@ -447,91 +438,76 @@ export default function SettingsPage() {
                 </label>
               </div>
 
-              {/* Day Off Toggle */}
-              <div className="border-b pb-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedHours.is_off}
-                    onChange={(e) => updateDateHours(selectedDate, { is_off: e.target.checked })}
-                    className="w-4 h-4 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Full day off</span>
-                </label>
-              </div>
-
               {/* Hours */}
-              {!selectedHours.is_off && (
-                <>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
-                      <input
-                        type="time"
-                        value={selectedHours.start_time || ""}
-                        onChange={(e) => updateDateHours(selectedDate, { start_time: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">End Time</label>
-                      <input
-                        type="time"
-                        value={selectedHours.end_time || ""}
-                        onChange={(e) => updateDateHours(selectedDate, { end_time: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                      />
-                    </div>
+              <>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+                    <input
+                      type="time"
+                      value={selectedHours.start_time || ""}
+                      onChange={(e) => updateDateHours(selectedDate, { start_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                    />
                   </div>
 
-                  {/* Blocked Time Slots */}
-                  <div className="border-t pt-4">
-                    <h4 className="text-xs font-bold text-gray-700 mb-3">🚫 Blocked Time Slots</h4>
-                    
-                    <div className="space-y-2 mb-3">
-                      {selectedHours.blocked_slots.length === 0 ? (
-                        <p className="text-xs text-gray-500">No blocked times</p>
-                      ) : (
-                        selectedHours.blocked_slots.map((slot) => (
-                          <div key={slot} className="flex items-center justify-between bg-red-50 p-2 rounded-lg">
-                            <span className="text-xs font-medium text-red-700">{slot}</span>
-                            <button
-                              onClick={() => removeBlockedSlot(slot)}
-                              className="text-red-600 hover:text-red-800 text-xs font-bold"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <input
-                        type="time"
-                        value={blockTimeStart}
-                        onChange={(e) => setBlockTimeStart(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:border-brand-blue focus:outline-none"
-                        placeholder="From"
-                      />
-                      <input
-                        type="time"
-                        value={blockTimeEnd}
-                        onChange={(e) => setBlockTimeEnd(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:border-brand-blue focus:outline-none"
-                        placeholder="To"
-                      />
-                      <button
-                        onClick={addBlockedSlot}
-                        className="w-full px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-medium rounded-lg transition-colors"
-                      >
-                        + Add Block
-                      </button>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">End Time</label>
+                    <input
+                      type="time"
+                      value={selectedHours.end_time || ""}
+                      onChange={(e) => updateDateHours(selectedDate, { end_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                    />
                   </div>
-                </>
-              )}
+                </div>
+
+                {/* Blocked Time Slots */}
+                <div className="border-t pt-4">
+                  <h4 className="text-xs font-bold text-gray-700 mb-3">🚫 Blocked Time Slots</h4>
+                  
+                  <div className="space-y-2 mb-3">
+                    {selectedHours.blocked_slots.length === 0 ? (
+                      <p className="text-xs text-gray-500">No blocked times</p>
+                    ) : (
+                      selectedHours.blocked_slots.map((slot) => (
+                        <div key={slot} className="flex items-center justify-between bg-red-50 p-2 rounded-lg">
+                          <span className="text-xs font-medium text-red-700">{slot}</span>
+                          <button
+                            onClick={() => removeBlockedSlot(slot)}
+                            className="text-red-600 hover:text-red-800 text-xs font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <input
+                      type="time"
+                      value={blockTimeStart}
+                      onChange={(e) => setBlockTimeStart(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:border-brand-blue focus:outline-none"
+                      placeholder="From"
+                    />
+                    <input
+                      type="time"
+                      value={blockTimeEnd}
+                      onChange={(e) => setBlockTimeEnd(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:border-brand-blue focus:outline-none"
+                      placeholder="To"
+                    />
+                    <button
+                      onClick={addBlockedSlot}
+                      className="w-full px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-medium rounded-lg transition-colors"
+                    >
+                      + Add Block
+                    </button>
+                  </div>
+                </div>
+              </>
 
               <div className="text-xs text-gray-500 pt-2 border-t">
                 Stored dates stay in the database; use the availability toggle instead of removing dates.

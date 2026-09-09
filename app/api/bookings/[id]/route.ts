@@ -42,7 +42,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 
       const { data: workingDateData, error: workingDateError } = await supabase
         .from("working_dates")
-        .select("date, available, start_time, end_time, is_off, blocked_slots")
+        .select("date, available, start_time, end_time, blocked_slots")
         .eq("date", nextDate)
         .single();
 

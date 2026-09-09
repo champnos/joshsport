@@ -17,7 +17,6 @@ interface DateHours {
   available: boolean;
   start_time: string | null;
   end_time: string | null;
-  is_off: boolean;
   blocked_slots: string[];
 }
 
@@ -29,11 +28,11 @@ export async function GET(request: NextRequest) {
     const client = isAdmin ? supabaseAdmin : supabase;
     let query = client
       .from("working_dates")
-      .select("date, available, start_time, end_time, is_off, blocked_slots, booked_slots")
+      .select("date, available, start_time, end_time, blocked_slots, booked_slots")
       .order("date", { ascending: true });
 
     if (!isAdmin) {
-      query = query.eq("available", true).eq("is_off", false);
+      query = query.eq("available", true);
     }
 
     const { data, error } = await query;
@@ -41,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (error && error.code !== "PGRST116") throw error;
 
     const hours = data || [];
-    const dates = hours.filter((row) => row.available && !row.is_off).map((row) => row.date);
+    const dates = hours.filter((row) => row.available).map((row) => row.date);
 
     return NextResponse.json({ dates, hours }, { status: 200 });
   } catch (err) {
@@ -110,7 +109,6 @@ export async function POST(request: NextRequest) {
         available: typeof row?.available === "boolean" ? row.available : selectedDates.has(date),
         start_time: startTime,
         end_time: endTime,
-        is_off: Boolean(row?.is_off),
         blocked_slots: blockedSlots,
       });
     }
@@ -124,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        dates: rows.filter((row) => row.available && !row.is_off).map((row) => row.date),
+        dates: rows.filter((row) => row.available).map((row) => row.date),
         hours: rows,
       },
       { status: 200 },
