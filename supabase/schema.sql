@@ -37,13 +37,32 @@ create table if not exists bookings (
 
 create table if not exists working_dates (
   date text primary key,
+  available boolean not null default false,
   start_time text,
   end_time text,
-  is_off boolean default false,
-  blocked_slots jsonb default '[]'::jsonb,
+  is_off boolean not null default false,
+  blocked_slots jsonb not null default '[]'::jsonb,
+  booked_slots jsonb not null default '[]'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+create or replace function seed_working_dates_rolling(months_ahead integer default 12)
+returns void
+language plpgsql
+as $$
+declare
+  start_date date := current_date;
+  end_date date := (current_date + make_interval(months => months_ahead) - interval '1 day')::date;
+begin
+  insert into working_dates (date, available)
+  select to_char(day_value::date, 'YYYY-MM-DD'), false
+  from generate_series(start_date, end_date, interval '1 day') as day_value
+  on conflict (date) do nothing;
+end;
+$$;
+
+select seed_working_dates_rolling();
 
 insert into treatments (name, description, durations, active) values
 (

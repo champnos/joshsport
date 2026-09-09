@@ -1,53 +1,18 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getAvailableSlots } from "@/lib/availability";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import {
+  buildBookedSlots,
+  ensureRollingWorkingDates,
+  getBookableSlots,
+  getBookingSettings,
+  isValidDateKey,
+} from "@/lib/working-dates";
 import type { NextRequest } from "next/server";
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-async function getSettings() {
-  try {
-    const { data: bookingData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "booking_window_days")
-      .single();
-
-    const { data: bufferData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "buffer_mins_after_booking")
-      .single();
-
-    const { data: startTimeData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "default_start_time")
-      .single();
-
-    const { data: endTimeData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "default_end_time")
-      .single();
-
-    return {
-      booking_window_days: bookingData ? parseInt(bookingData.value) : 30,
-      buffer_mins_after_booking: bufferData ? parseInt(bufferData.value) : 30,
-      default_start_time: startTimeData?.value || "09:00",
-      default_end_time: endTimeData?.value || "17:00",
-    };
-  } catch {
-    return {
-      booking_window_days: 30,
-      buffer_mins_after_booking: 30,
-      default_start_time: "09:00",
-      default_end_time: "17:00",
-    };
-  }
 }
 
 export async function GET(request: NextRequest) {
@@ -61,9 +26,11 @@ export async function GET(request: NextRequest) {
     if (admin === "true") {
       if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
 
-      const { data, error } = await supabase
+      await ensureRollingWorkingDates();
+
+      const { data, error } = await supabaseAdmin
         .from("working_dates")
-        .select("*")
+        .select("date, available, start_time, end_time, is_off, blocked_slots, booked_slots")
         .order("date", { ascending: true });
 
       if (error) throw error;
@@ -75,10 +42,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Date and duration are required." }, { status: 400 });
     }
 
+    if (!isValidDateKey(date)) {
+      return NextResponse.json({ error: "Date must be in YYYY-MM-DD format." }, { status: 400 });
+    }
+
+    await ensureRollingWorkingDates();
+
     // Get settings for booking window and buffer time
-    const settings = await getSettings();
+    const settings = await getBookingSettings();
     const bookingWindowDays = settings.booking_window_days;
-    const bufferMins = settings.buffer_mins_after_booking;
 
     // Validate date is within booking window
     const today = startOfDay(new Date());
@@ -87,7 +59,7 @@ export async function GET(request: NextRequest) {
     const requestedDate = startOfDay(new Date(date));
 
     if (requestedDate < today || requestedDate > maxBookingDate) {
-      return NextResponse.json({ slots: [] });
+      return NextResponse.json({ slots: [], booked_slots: [] });
     }
 
     // Check if therapist is working that date
@@ -100,12 +72,11 @@ export async function GET(request: NextRequest) {
     if (workingDateError && workingDateError.code !== "PGRST116") throw workingDateError;
 
     if (!workingDateData) {
-      return NextResponse.json({ slots: [] });
+      return NextResponse.json({ slots: [], booked_slots: [] });
     }
 
-    // Check if day is marked as off
-    if (workingDateData.is_off) {
-      return NextResponse.json({ slots: [] });
+    if (!workingDateData.available || workingDateData.is_off) {
+      return NextResponse.json({ slots: [], booked_slots: [] });
     }
 
     // Get existing bookings for that day
@@ -115,44 +86,16 @@ export async function GET(request: NextRequest) {
       .eq("date", date)
       .neq("status", "cancelled");
 
-    // Use date-specific hours or fallback to defaults
-    const startTime = workingDateData.start_time || settings.default_start_time;
-    const endTime = workingDateData.end_time || settings.default_end_time;
-
-    // Get available slots, then filter out blocked times
-    let slots = getAvailableSlots(
+    const slots = getBookableSlots(
       date,
       duration,
+      workingDateData,
       existingBookings ?? [],
-      bufferMins,
-      startTime,
-      endTime
+      settings,
     );
+    const bookedSlots = buildBookedSlots(existingBookings ?? []);
 
-    // Filter out blocked slots
-    if (workingDateData.blocked_slots && Array.isArray(workingDateData.blocked_slots)) {
-      slots = slots.filter((slot) => {
-        // slot is in format "HH:MM"
-        const slotStart = slot;
-        const slotEnd = new Date(`2000-01-01T${slot}:00`);
-        slotEnd.setMinutes(slotEnd.getMinutes() + duration);
-        const slotEndStr = `${String(slotEnd.getHours()).padStart(2, "0")}:${String(
-          slotEnd.getMinutes()
-        ).padStart(2, "0")}`;
-
-        // Check if this slot overlaps with any blocked slot
-        for (const blocked of workingDateData.blocked_slots) {
-          const [blockedStart, blockedEnd] = blocked.split("-");
-          // If slot starts before blocked ends and ends after blocked starts, it overlaps
-          if (slotStart < blockedEnd && slotEndStr > blockedStart) {
-            return false; // Slot overlaps with blocked time
-          }
-        }
-        return true;
-      });
-    }
-
-    return NextResponse.json({ slots });
+    return NextResponse.json({ slots, booked_slots: bookedSlots });
   } catch (err) {
     console.error("Failed to fetch availability:", err);
     return NextResponse.json({ error: "Unable to load availability." }, { status: 500 });

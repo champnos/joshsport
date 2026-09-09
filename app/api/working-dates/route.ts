@@ -2,27 +2,46 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import {
+  ensureRollingWorkingDates,
+  isValidBlockedSlot,
+  isValidDateKey,
+  isValidTimeValue,
+  normalizeTimeValue,
+  timeToMinutes,
+} from "@/lib/working-dates";
 import type { NextRequest } from "next/server";
 
 interface DateHours {
   date: string;
+  available: boolean;
   start_time: string | null;
   end_time: string | null;
   is_off: boolean;
   blocked_slots: string[];
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { data, error } = await supabase
+    await ensureRollingWorkingDates();
+
+    const isAdmin = isAuthorizedAdminRequest(request);
+    const client = isAdmin ? supabaseAdmin : supabase;
+    let query = client
       .from("working_dates")
-      .select("*")
+      .select("date, available, start_time, end_time, is_off, blocked_slots, booked_slots")
       .order("date", { ascending: true });
+
+    if (!isAdmin) {
+      query = query.eq("available", true).eq("is_off", false);
+    }
+
+    const { data, error } = await query;
 
     if (error && error.code !== "PGRST116") throw error;
 
-    const dates = data?.map((row) => row.date) || [];
     const hours = data || [];
+    const dates = hours.filter((row) => row.available && !row.is_off).map((row) => row.date);
 
     return NextResponse.json({ dates, hours }, { status: 200 });
   } catch (err) {
@@ -36,47 +55,80 @@ export async function POST(request: NextRequest) {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
 
     const body = await request.json();
-    const { dates, hours } = body;
+    const inputRows = Array.isArray(body.hours)
+      ? body.hours
+      : Array.isArray(body.dates)
+        ? body.dates.map((date: string) => ({ date, available: true }))
+        : null;
 
-    if (!Array.isArray(dates)) {
+    if (!Array.isArray(inputRows)) {
       return NextResponse.json({ error: "Dates must be an array" }, { status: 400 });
     }
 
-    const { error: deleteError } = await supabaseAdmin
-      .from("working_dates")
-      .delete()
-      .gt("date", "1900-01-01");
+    const selectedDates = new Set(
+      Array.isArray(body.dates)
+        ? body.dates
+            .filter((value: unknown): value is string => typeof value === "string")
+            .map((value: string) => value.trim())
+        : [],
+    );
 
-    if (deleteError) {
-      console.error("Failed to delete existing working dates:", deleteError);
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    const dedupedRows = new Map<string, DateHours>();
+
+    for (const row of inputRows) {
+      const date = typeof row?.date === "string" ? row.date.trim() : "";
+      const startTime = normalizeTimeValue(typeof row?.start_time === "string" ? row.start_time.trim() : null);
+      const endTime = normalizeTimeValue(typeof row?.end_time === "string" ? row.end_time.trim() : null);
+      const blockedSlots = Array.isArray(row?.blocked_slots)
+        ? row.blocked_slots
+            .filter((slot: unknown): slot is string => typeof slot === "string")
+            .map((slot: string) => slot.trim())
+        : [];
+
+      if (!isValidDateKey(date)) {
+        return NextResponse.json({ error: `Invalid date: ${date}` }, { status: 400 });
+      }
+
+      if (startTime && !isValidTimeValue(startTime)) {
+        return NextResponse.json({ error: `Invalid start time for ${date}` }, { status: 400 });
+      }
+
+      if (endTime && !isValidTimeValue(endTime)) {
+        return NextResponse.json({ error: `Invalid end time for ${date}` }, { status: 400 });
+      }
+
+      if (startTime && endTime && timeToMinutes(startTime) >= timeToMinutes(endTime)) {
+        return NextResponse.json({ error: `Start time must be before end time for ${date}` }, { status: 400 });
+      }
+
+      if (!blockedSlots.every(isValidBlockedSlot)) {
+        return NextResponse.json({ error: `Invalid blocked slot for ${date}` }, { status: 400 });
+      }
+
+      dedupedRows.set(date, {
+        date,
+        available: typeof row?.available === "boolean" ? row.available : selectedDates.has(date),
+        start_time: startTime,
+        end_time: endTime,
+        is_off: Boolean(row?.is_off),
+        blocked_slots: blockedSlots,
+      });
     }
 
-    // Insert new working dates with hours
-    if (hours && Array.isArray(hours) && hours.length > 0) {
-      const formattedHours = hours.map((h: DateHours) => ({
-        date: h.date,
-        start_time: h.start_time || null,
-        end_time: h.end_time || null,
-        is_off: h.is_off || false,
-        blocked_slots: h.blocked_slots || [],
-      }));
+    await ensureRollingWorkingDates();
 
-      const { error: insertError } = await supabaseAdmin
-        .from("working_dates")
-        .insert(formattedHours);
+    const rows = Array.from(dedupedRows.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const { error: upsertError } = await supabaseAdmin.from("working_dates").upsert(rows, { onConflict: "date" });
 
-      if (insertError) throw insertError;
-    } else if (dates.length > 0) {
-      // Fallback: insert simple dates if no hours provided
-      const { error: insertError } = await supabaseAdmin
-        .from("working_dates")
-        .insert(dates.map((date: string) => ({ date })));
+    if (upsertError) throw upsertError;
 
-      if (insertError) throw insertError;
-    }
-
-    return NextResponse.json({ dates, hours: hours || [] }, { status: 200 });
+    return NextResponse.json(
+      {
+        dates: rows.filter((row) => row.available && !row.is_off).map((row) => row.date),
+        hours: rows,
+      },
+      { status: 200 },
+    );
   } catch (err) {
     console.error("Failed to update working dates:", err);
     const errorMessage =

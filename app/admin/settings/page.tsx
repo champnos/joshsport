@@ -16,10 +16,12 @@ interface Settings {
 
 interface DateHours {
   date: string;
+  available: boolean;
   start_time: string | null;
   end_time: string | null;
   is_off: boolean;
   blocked_slots: string[]; // Array of time ranges like "14:00-15:30"
+  booked_slots?: string[];
 }
 
 export default function SettingsPage() {
@@ -87,7 +89,15 @@ export default function SettingsPage() {
         const hoursMap = new Map<string, DateHours>();
         if (datesData.hours) {
           datesData.hours.forEach((h: DateHours) => {
-            hoursMap.set(h.date, h);
+            hoursMap.set(h.date, {
+              date: h.date,
+              available: Boolean(h.available),
+              start_time: h.start_time ?? null,
+              end_time: h.end_time ?? null,
+              is_off: Boolean(h.is_off),
+              blocked_slots: Array.isArray(h.blocked_slots) ? h.blocked_slots : [],
+              booked_slots: Array.isArray(h.booked_slots) ? h.booked_slots : [],
+            });
           });
         }
         setDateHours(hoursMap);
@@ -103,50 +113,43 @@ export default function SettingsPage() {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
-  const toggleDate = (dateStr: string) => {
-    const newDates = new Set(workingDates);
-    if (newDates.has(dateStr)) {
-      newDates.delete(dateStr);
-      setDateHours((prev) => {
-        const next = new Map(prev);
+  const createDefaultDateHours = (dateStr: string): DateHours => ({
+    date: dateStr,
+    available: false,
+    start_time: settings.default_start_time,
+    end_time: settings.default_end_time,
+    is_off: false,
+    blocked_slots: [],
+    booked_slots: [],
+  });
+
+  const setDateAvailability = (dateStr: string, available: boolean) => {
+    setWorkingDates((prev) => {
+      const next = new Set(prev);
+      if (available) {
+        next.add(dateStr);
+      } else {
         next.delete(dateStr);
-        return next;
-      });
-    } else {
-      newDates.add(dateStr);
-      // Initialize with default hours
-      setDateHours((prev) => {
-        const next = new Map(prev);
-        next.set(dateStr, {
-          date: dateStr,
-          start_time: settings.default_start_time,
-          end_time: settings.default_end_time,
-          is_off: false,
-          blocked_slots: [],
-        });
-        return next;
-      });
-    }
-    setWorkingDates(newDates);
+      }
+      return next;
+    });
+
+    setDateHours((prev) => {
+      const next = new Map(prev);
+      const current = next.get(dateStr) || createDefaultDateHours(dateStr);
+      next.set(dateStr, { ...current, available });
+      return next;
+    });
   };
 
   const getDateHours = (dateStr: string): DateHours => {
-    if (!dateHours.has(dateStr)) {
-      dateHours.set(dateStr, {
-        date: dateStr,
-        start_time: settings.default_start_time,
-        end_time: settings.default_end_time,
-        is_off: false,
-        blocked_slots: [],
-      });
-    }
-    return dateHours.get(dateStr)!;
+    return dateHours.get(dateStr) || createDefaultDateHours(dateStr);
   };
 
   const updateDateHours = (dateStr: string, updates: Partial<DateHours>) => {
     setDateHours((prev) => {
       const next = new Map(prev);
-      const current = getDateHours(dateStr);
+      const current = next.get(dateStr) || createDefaultDateHours(dateStr);
       next.set(dateStr, { ...current, ...updates });
       return next;
     });
@@ -272,12 +275,7 @@ export default function SettingsPage() {
       days.push(
         <button
           key={day}
-          onClick={() => {
-            setSelectedDate(dateStr);
-            if (!isWorking) {
-              toggleDate(dateStr);
-            }
-          }}
+          onClick={() => setSelectedDate(dateStr)}
           className={`p-3 text-center rounded-lg font-medium text-sm transition-all ${
             isSelected
               ? "ring-2 ring-brand-blue bg-brand-gold text-brand-blue"
@@ -287,7 +285,7 @@ export default function SettingsPage() {
                 : "bg-brand-gold text-brand-blue"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
-          title={hours.is_off ? "Day off" : isWorking ? `${hours.start_time}-${hours.end_time}` : "Not working"}
+          title={hours.is_off ? "Day off" : isWorking ? `${hours.start_time}-${hours.end_time}` : "Unavailable"}
         >
           {day}
         </button>
@@ -375,7 +373,7 @@ export default function SettingsPage() {
       {/* Working Dates Calendar with Flexible Hours */}
       <div>
         <h2 className="text-2xl font-bold text-brand-blue mb-2">Manage Your Availability</h2>
-        <p className="text-gray-600 text-sm mb-6">Click on dates to set custom hours, block time slots, or mark days off. Click again to edit.</p>
+        <p className="text-gray-600 text-sm mb-6">Select a date to toggle whether it is available, adjust hours, block time slots, or mark it as a full day off.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Calendar */}
@@ -411,7 +409,7 @@ export default function SettingsPage() {
             <div className="mt-4 flex items-center gap-4 text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-brand-gold rounded"></div>
-                <span>Working</span>
+                <span>Available</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-red-100 border border-red-600 rounded"></div>
@@ -419,7 +417,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-gray-100 rounded"></div>
-                <span>Not Set</span>
+                <span>Unavailable</span>
               </div>
             </div>
           </div>
@@ -435,6 +433,18 @@ export default function SettingsPage() {
                     day: "numeric",
                   })}
                 </h3>
+              </div>
+
+              <div className="border-b pb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedHours.available}
+                    onChange={(e) => setDateAvailability(selectedDate, e.target.checked)}
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Available for booking</span>
+                </label>
               </div>
 
               {/* Day Off Toggle */}
@@ -524,14 +534,14 @@ export default function SettingsPage() {
               )}
 
               <div className="text-xs text-gray-500 pt-2 border-t">
-                Click another date to edit it, or configure defaults below.
+                Stored dates stay in the database; use the availability toggle instead of removing dates.
               </div>
             </div>
           )}
         </div>
 
         <p className="text-xs text-gray-500 mt-4">
-          {workingDates.size} date(s) configured
+          {workingDates.size} date(s) currently available
         </p>
       </div>
 
