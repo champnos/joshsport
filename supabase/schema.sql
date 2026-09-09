@@ -35,6 +35,16 @@ create table if not exists bookings (
   created_at timestamptz default now()
 );
 
+create table if not exists working_dates (
+  date text primary key,
+  start_time text,
+  end_time text,
+  is_off boolean default false,
+  blocked_slots jsonb default '[]'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 insert into treatments (name, description, durations, active) values
 (
   'Sports Massage',
