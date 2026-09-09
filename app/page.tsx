@@ -102,7 +102,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-white py-20 px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
           <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-gray-50 shadow-sm overflow-hidden">
             {loading ? (
@@ -136,7 +136,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-brand-blue py-20 px-4 sm:px-6 lg:px-8">
+      <section className="bg-brand-blue py-16 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <h2 className="text-center text-3xl font-bold text-white sm:text-4xl max-w-3xl mx-auto">
             More than relaxation – vital for maintaining the body and active lifestyle
@@ -158,7 +158,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-white py-20 px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
