@@ -307,7 +307,7 @@ export default function SettingsPage() {
   if (loading) return <p className="text-center py-10 text-gray-500">Loading...</p>;
 
   return (
-    <div className="max-w-6xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8 px-4">
       {/* Social Links Section */}
       <div>
         <h2 className="text-2xl font-bold text-brand-blue mb-2">Social Links & Contact</h2>
