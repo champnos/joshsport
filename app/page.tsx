@@ -94,15 +94,9 @@ export default function Home() {
             </Link>
           </div>
         </div>
-        {/* wave divider */}
-        <div className="absolute bottom-0 left-0 right-0 leading-none">
-          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
-            <path d="M0 60 L0 30 Q360 0 720 30 Q1080 60 1440 30 L1440 60 Z" fill="white" />
-          </svg>
-        </div>
       </section>
 
-      <section className="bg-white py-12 px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-8 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
           <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-gray-50 shadow-sm overflow-hidden">
             {loading ? (
