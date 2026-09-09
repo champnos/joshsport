@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     
     // Upload to Supabase storage
     const fileName = `${params.id}-${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabaseAdmin.storage
       .from("treatment-images")
       .upload(fileName, buffer, { contentType: file.type });
 
@@ -29,12 +30,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseAdmin.storage
       .from("treatment-images")
       .getPublicUrl(fileName);
 
     // Update treatment record with image URL
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("treatments")
       .update({ image_url: publicUrl })
       .eq("id", params.id);
@@ -73,7 +74,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Delete from Supabase storage
-    const { error: deleteError } = await supabase.storage
+    const { error: deleteError } = await supabaseAdmin.storage
       .from("treatment-images")
       .remove([fileName]);
 
@@ -83,7 +84,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Update treatment record to remove image URL
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("treatments")
       .update({ image_url: null })
       .eq("id", params.id);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     const fileName = `hero-${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabaseAdmin.storage
       .from("treatment-images")
       .upload(fileName, buffer, { contentType: file.type });
 
@@ -46,12 +47,12 @@ export async function POST(request: NextRequest) {
       throw uploadError;
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseAdmin.storage
       .from("treatment-images")
       .getPublicUrl(fileName);
 
     // Save URL to settings table
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("settings")
       .upsert({ key: "hero_image_url", value: publicUrl }, { onConflict: "key" });
 
@@ -89,7 +90,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete from storage
-    const { error: deleteError } = await supabase.storage
+    const { error: deleteError } = await supabaseAdmin.storage
       .from("treatment-images")
       .remove([fileName]);
 
@@ -99,7 +100,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Clear from settings
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("settings")
       .update({ value: null })
       .eq("key", "hero_image_url");

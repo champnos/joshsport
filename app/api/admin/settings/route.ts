@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
@@ -69,49 +70,49 @@ export async function POST(request: NextRequest) {
     }
 
     // Update booking_window_days
-    const { error: error1 } = await supabase
+    const { error: error1 } = await supabaseAdmin
       .from("settings")
       .update({ value: booking_window_days.toString() })
       .eq("key", "booking_window_days");
 
     if (error1) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "booking_window_days", value: booking_window_days.toString() });
     }
 
     // Update buffer_mins_after_booking
-    const { error: error2 } = await supabase
+    const { error: error2 } = await supabaseAdmin
       .from("settings")
       .update({ value: buffer_mins_after_booking.toString() })
       .eq("key", "buffer_mins_after_booking");
 
     if (error2) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "buffer_mins_after_booking", value: buffer_mins_after_booking.toString() });
     }
 
     // Update default_start_time
-    const { error: error3 } = await supabase
+    const { error: error3 } = await supabaseAdmin
       .from("settings")
       .update({ value: default_start_time })
       .eq("key", "default_start_time");
 
     if (error3) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "default_start_time", value: default_start_time });
     }
 
     // Update default_end_time
-    const { error: error4 } = await supabase
+    const { error: error4 } = await supabaseAdmin
       .from("settings")
       .update({ value: default_end_time })
       .eq("key", "default_end_time");
 
     if (error4) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "default_end_time", value: default_end_time });
     }

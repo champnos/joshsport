@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Delete all existing working dates
-    await supabase.from("working_dates").delete().gt("date", "1900-01-01");
+    await supabaseAdmin.from("working_dates").delete().gt("date", "1900-01-01");
 
     // Insert new working dates with hours
     if (hours && Array.isArray(hours) && hours.length > 0) {
@@ -54,14 +55,14 @@ export async function POST(request: NextRequest) {
         blocked_slots: h.blocked_slots || [],
       }));
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await supabaseAdmin
         .from("working_dates")
         .insert(formattedHours);
 
       if (insertError) throw insertError;
     } else if (dates.length > 0) {
       // Fallback: insert simple dates if no hours provided
-      const { error: insertError } = await supabase
+      const { error: insertError } = await supabaseAdmin
         .from("working_dates")
         .insert(dates.map((date: string) => ({ date })));
 

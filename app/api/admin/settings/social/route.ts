@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
@@ -60,49 +61,49 @@ export async function POST(request: NextRequest) {
     const { instagram, facebook, tiktok, email } = body;
 
     // Update or insert Instagram
-    const { error: error1 } = await supabase
+    const { error: error1 } = await supabaseAdmin
       .from("settings")
       .update({ value: instagram || "" })
       .eq("key", "social_instagram");
 
     if (error1) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "social_instagram", value: instagram || "" });
     }
 
     // Update or insert Facebook
-    const { error: error2 } = await supabase
+    const { error: error2 } = await supabaseAdmin
       .from("settings")
       .update({ value: facebook || "" })
       .eq("key", "social_facebook");
 
     if (error2) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "social_facebook", value: facebook || "" });
     }
 
     // Update or insert TikTok
-    const { error: error3 } = await supabase
+    const { error: error3 } = await supabaseAdmin
       .from("settings")
       .update({ value: tiktok || "" })
       .eq("key", "social_tiktok");
 
     if (error3) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "social_tiktok", value: tiktok || "" });
     }
 
     // Update or insert Email
-    const { error: error4 } = await supabase
+    const { error: error4 } = await supabaseAdmin
       .from("settings")
       .update({ value: email || "contact@maggsymassagetherapy.com" })
       .eq("key", "contact_email");
 
     if (error4) {
-      await supabase
+      await supabaseAdmin
         .from("settings")
         .insert({ key: "contact_email", value: email || "contact@maggsymassagetherapy.com" });
     }
