@@ -161,8 +161,10 @@ export default function SettingsPage() {
 
     const hours = getDateHours(selectedDate);
     const slot = `${blockTimeStart}-${blockTimeEnd}`;
-    const newSlots = [...new Set([...hours.blocked_slots, slot])];
-    updateDateHours(selectedDate, { blocked_slots: newSlots });
+    // Check if slot already exists to avoid duplicates
+    if (!hours.blocked_slots.includes(slot)) {
+      updateDateHours(selectedDate, { blocked_slots: [...hours.blocked_slots, slot] });
+    }
     setBlockTimeStart("");
     setBlockTimeEnd("");
   };
