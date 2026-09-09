@@ -7,7 +7,6 @@ export interface WorkingDateRow {
   available: boolean;
   start_time: string | null;
   end_time: string | null;
-  is_off: boolean;
   blocked_slots: string[];
   booked_slots?: string[];
 }
@@ -102,11 +101,11 @@ export function buildBookedSlots(existingBookings: ExistingBooking[] = []) {
 export function getBookableSlots(
   date: string,
   duration: number,
-  workingDate: Pick<WorkingDateRow, "available" | "start_time" | "end_time" | "is_off" | "blocked_slots">,
+  workingDate: Pick<WorkingDateRow, "available" | "start_time" | "end_time" | "blocked_slots">,
   existingBookings: ExistingBooking[],
   settings: BookingSettings,
 ) {
-  if (!workingDate.available || workingDate.is_off) return [];
+  if (!workingDate.available) return [];
 
   const startTime = normalizeTimeValue(workingDate.start_time) || settings.default_start_time;
   const endTime = normalizeTimeValue(workingDate.end_time) || settings.default_end_time;

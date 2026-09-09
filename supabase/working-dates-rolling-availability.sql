@@ -3,14 +3,13 @@ ALTER TABLE working_dates
   ADD COLUMN IF NOT EXISTS booked_slots jsonb NOT NULL DEFAULT '[]'::jsonb;
 
 ALTER TABLE working_dates
-  ALTER COLUMN is_off SET DEFAULT false,
+  DROP COLUMN IF EXISTS is_off,
   ALTER COLUMN blocked_slots SET DEFAULT '[]'::jsonb,
   ALTER COLUMN booked_slots SET DEFAULT '[]'::jsonb;
 
 UPDATE working_dates
 SET
   available = COALESCE(available, false),
-  is_off = COALESCE(is_off, false),
   blocked_slots = COALESCE(blocked_slots, '[]'::jsonb),
   booked_slots = COALESCE(booked_slots, '[]'::jsonb);
 

@@ -4,7 +4,7 @@ import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function GET(request: NextRequest) {
   try {
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
     const { data: workingDateData, error: workingDateError } = await supabase
       .from("working_dates")
-      .select("date, available, start_time, end_time, is_off, blocked_slots")
+      .select("date, available, start_time, end_time, blocked_slots")
       .eq("date", date)
       .single();
 
@@ -136,6 +136,8 @@ export async function POST(request: Request) {
 
     // Send email to Josh with booking details
     try {
+      if (!resend) throw new Error("Missing RESEND_API_KEY");
+
       await resend.emails.send({
         from: "bookings@maggsymassagetherapy.com",
         to: process.env.JOSH_EMAIL || "josh@maggsymassagetherapy.com",
@@ -192,6 +194,8 @@ export async function POST(request: Request) {
 
     // Send confirmation email to client
     try {
+      if (!resend) throw new Error("Missing RESEND_API_KEY");
+
       await resend.emails.send({
         from: "bookings@maggsymassagetherapy.com",
         to: client_email,

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await supabaseAdmin
         .from("working_dates")
-        .select("date, available, start_time, end_time, is_off, blocked_slots, booked_slots")
+        .select("date, available, start_time, end_time, blocked_slots, booked_slots")
         .order("date", { ascending: true });
 
       if (error) throw error;
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ slots: [], booked_slots: [] });
     }
 
-    if (!workingDateData.available || workingDateData.is_off) {
+    if (!workingDateData.available) {
       return NextResponse.json({ slots: [], booked_slots: [] });
     }
 

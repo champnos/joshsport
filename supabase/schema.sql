@@ -40,7 +40,6 @@ create table if not exists working_dates (
   available boolean not null default false,
   start_time text,
   end_time text,
-  is_off boolean not null default false,
   blocked_slots jsonb not null default '[]'::jsonb,
   booked_slots jsonb not null default '[]'::jsonb,
   created_at timestamptz default now(),
