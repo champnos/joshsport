@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 
 export async function GET() {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
     const body = await request.json();
     console.log("Creating treatment with body:", JSON.stringify(body, null, 2));
-    const { data, error } = await supabase.from("treatments").insert([body]).select().single();
+    const { data, error } = await supabaseAdmin.from("treatments").insert([body]).select().single();
     if (error) {
       console.error("Supabase insert error:", error);
       throw error;
