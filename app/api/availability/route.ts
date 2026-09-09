@@ -103,6 +103,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ slots: [] });
     }
 
+    // Check if day is marked as off
+    if (workingDateData.is_off) {
+      return NextResponse.json({ slots: [] });
+    }
+
     // Get existing bookings for that day
     const { data: existingBookings } = await supabase
       .from("bookings")
@@ -110,7 +115,43 @@ export async function GET(request: NextRequest) {
       .eq("date", date)
       .neq("status", "cancelled");
 
-    const slots = getAvailableSlots(date, duration, existingBookings ?? [], bufferMins, settings.default_start_time, settings.default_end_time);
+    // Use date-specific hours or fallback to defaults
+    const startTime = workingDateData.start_time || settings.default_start_time;
+    const endTime = workingDateData.end_time || settings.default_end_time;
+
+    // Get available slots, then filter out blocked times
+    let slots = getAvailableSlots(
+      date,
+      duration,
+      existingBookings ?? [],
+      bufferMins,
+      startTime,
+      endTime
+    );
+
+    // Filter out blocked slots
+    if (workingDateData.blocked_slots && Array.isArray(workingDateData.blocked_slots)) {
+      slots = slots.filter((slot) => {
+        // slot is in format "HH:MM"
+        const slotStart = slot;
+        const slotEnd = new Date(`2000-01-01T${slot}:00`);
+        slotEnd.setMinutes(slotEnd.getMinutes() + duration);
+        const slotEndStr = `${String(slotEnd.getHours()).padStart(2, "0")}:${String(
+          slotEnd.getMinutes()
+        ).padStart(2, "0")}`;
+
+        // Check if this slot overlaps with any blocked slot
+        for (const blocked of workingDateData.blocked_slots) {
+          const [blockedStart, blockedEnd] = blocked.split("-");
+          // If slot starts before blocked ends and ends after blocked starts, it overlaps
+          if (slotStart < blockedEnd && slotEndStr > blockedStart) {
+            return false; // Slot overlaps with blocked time
+          }
+        }
+        return true;
+      });
+    }
+
     return NextResponse.json({ slots });
   } catch (err) {
     console.error("Failed to fetch availability:", err);
