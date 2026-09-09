@@ -42,8 +42,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Dates must be an array" }, { status: 400 });
     }
 
-    // Delete all existing working dates
-    await supabaseAdmin.from("working_dates").delete().gt("date", "1900-01-01");
+    const { error: deleteError } = await supabaseAdmin
+      .from("working_dates")
+      .delete()
+      .gt("date", "1900-01-01");
+
+    if (deleteError) {
+      console.error("Failed to delete existing working dates:", deleteError);
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
 
     // Insert new working dates with hours
     if (hours && Array.isArray(hours) && hours.length > 0) {
@@ -72,6 +79,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ dates, hours: hours || [] }, { status: 200 });
   } catch (err) {
     console.error("Failed to update working dates:", err);
-    return NextResponse.json({ error: "Unable to update working dates." }, { status: 500 });
+    const errorMessage =
+      typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
+        ? err.message
+        : "Unable to update working dates.";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
