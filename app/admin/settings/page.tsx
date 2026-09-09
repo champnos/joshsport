@@ -14,6 +14,14 @@ interface Settings {
   email?: string;
 }
 
+interface DateHours {
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  is_off: boolean;
+  blocked_slots: string[]; // Array of time ranges like "14:00-15:30"
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
     booking_window_days: 30,
@@ -26,9 +34,13 @@ export default function SettingsPage() {
     email: "",
   });
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
+  const [dateHours, setDateHours] = useState<Map<string, DateHours>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [blockTimeStart, setBlockTimeStart] = useState("");
+  const [blockTimeEnd, setBlockTimeEnd] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -70,6 +82,15 @@ export default function SettingsPage() {
       if (datesRes.ok) {
         const datesData = await datesRes.json();
         setWorkingDates(new Set(datesData.dates || []));
+        
+        // Initialize dateHours map
+        const hoursMap = new Map<string, DateHours>();
+        if (datesData.hours) {
+          datesData.hours.forEach((h: DateHours) => {
+            hoursMap.set(h.date, h);
+          });
+        }
+        setDateHours(hoursMap);
       }
     } catch (err) {
       console.error(err);
@@ -86,10 +107,71 @@ export default function SettingsPage() {
     const newDates = new Set(workingDates);
     if (newDates.has(dateStr)) {
       newDates.delete(dateStr);
+      setDateHours((prev) => {
+        const next = new Map(prev);
+        next.delete(dateStr);
+        return next;
+      });
     } else {
       newDates.add(dateStr);
+      // Initialize with default hours
+      setDateHours((prev) => {
+        const next = new Map(prev);
+        next.set(dateStr, {
+          date: dateStr,
+          start_time: settings.default_start_time,
+          end_time: settings.default_end_time,
+          is_off: false,
+          blocked_slots: [],
+        });
+        return next;
+      });
     }
     setWorkingDates(newDates);
+  };
+
+  const getDateHours = (dateStr: string): DateHours => {
+    if (!dateHours.has(dateStr)) {
+      dateHours.set(dateStr, {
+        date: dateStr,
+        start_time: settings.default_start_time,
+        end_time: settings.default_end_time,
+        is_off: false,
+        blocked_slots: [],
+      });
+    }
+    return dateHours.get(dateStr)!;
+  };
+
+  const updateDateHours = (dateStr: string, updates: Partial<DateHours>) => {
+    setDateHours((prev) => {
+      const next = new Map(prev);
+      const current = getDateHours(dateStr);
+      next.set(dateStr, { ...current, ...updates });
+      return next;
+    });
+  };
+
+  const addBlockedSlot = () => {
+    if (!selectedDate || !blockTimeStart || !blockTimeEnd) return;
+    if (blockTimeStart >= blockTimeEnd) {
+      alert("End time must be after start time");
+      return;
+    }
+
+    const hours = getDateHours(selectedDate);
+    const slot = `${blockTimeStart}-${blockTimeEnd}`;
+    const newSlots = [...new Set([...hours.blocked_slots, slot])];
+    updateDateHours(selectedDate, { blocked_slots: newSlots });
+    setBlockTimeStart("");
+    setBlockTimeEnd("");
+  };
+
+  const removeBlockedSlot = (slot: string) => {
+    if (!selectedDate) return;
+    const hours = getDateHours(selectedDate);
+    const newSlots = hours.blocked_slots.filter((s) => s !== slot);
+    updateDateHours(selectedDate, { blocked_slots: newSlots });
   };
 
   const handleSave = async () => {
@@ -129,14 +211,18 @@ export default function SettingsPage() {
       });
       if (!socialRes.ok) throw new Error("Failed to save social settings");
 
-      // Save working dates
+      // Save working dates and hours
+      const hoursArray = Array.from(dateHours.values());
       const datesRes = await fetch("/api/working-dates", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-admin-password": password,
         },
-        body: JSON.stringify({ dates: Array.from(workingDates) }),
+        body: JSON.stringify({ 
+          dates: Array.from(workingDates),
+          hours: hoursArray,
+        }),
       });
       if (!datesRes.ok) throw new Error("Failed to save working dates");
 
@@ -178,15 +264,28 @@ export default function SettingsPage() {
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = formatDate(year, month, day);
       const isWorking = workingDates.has(dateStr);
+      const hours = getDateHours(dateStr);
+      const isSelected = selectedDate === dateStr;
+      
       days.push(
         <button
           key={day}
-          onClick={() => toggleDate(dateStr)}
-          className={`p-3 text-center rounded-lg font-medium text-sm transition-colors ${
-            isWorking
-              ? "bg-brand-gold text-brand-blue"
+          onClick={() => {
+            setSelectedDate(dateStr);
+            if (!isWorking) {
+              toggleDate(dateStr);
+            }
+          }}
+          className={`p-3 text-center rounded-lg font-medium text-sm transition-all ${
+            isSelected
+              ? "ring-2 ring-brand-blue bg-brand-gold text-brand-blue"
+              : isWorking
+              ? hours.is_off
+                ? "bg-red-100 text-red-600"
+                : "bg-brand-gold text-brand-blue"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
+          title={hours.is_off ? "Day off" : isWorking ? `${hours.start_time}-${hours.end_time}` : "Not working"}
         >
           {day}
         </button>
@@ -201,10 +300,12 @@ export default function SettingsPage() {
     year: "numeric",
   });
 
+  const selectedHours = selectedDate ? getDateHours(selectedDate) : null;
+
   if (loading) return <p className="text-center py-10 text-gray-500">Loading...</p>;
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="max-w-6xl space-y-8">
       {/* Social Links Section */}
       <div>
         <h2 className="text-2xl font-bold text-brand-blue mb-2">Social Links & Contact</h2>
@@ -269,50 +370,173 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Working Dates Calendar */}
+      {/* Working Dates Calendar with Flexible Hours */}
       <div>
-        <h2 className="text-2xl font-bold text-brand-blue mb-2">Select Your Working Dates</h2>
-        <p className="text-gray-600 text-sm mb-6">Click on dates in the calendar to mark when you&apos;re available. This overrides day-of-week settings.</p>
+        <h2 className="text-2xl font-bold text-brand-blue mb-2">Manage Your Availability</h2>
+        <p className="text-gray-600 text-sm mb-6">Click on dates to set custom hours, block time slots, or mark days off. Click again to edit.</p>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <button
-              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              ← Previous
-            </button>
-            <h3 className="text-lg font-bold text-brand-blue">{monthName}</h3>
-            <button
-              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              Next →
-            </button>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Calendar */}
+          <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                ← Previous
+              </button>
+              <h3 className="text-lg font-bold text-brand-blue">{monthName}</h3>
+              <button
+                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Next →
+              </button>
+            </div>
 
-          {/* Day headers */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div key={day} className="p-2 text-center text-xs font-bold text-gray-500">
-                {day}
+            {/* Day headers */}
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <div key={day} className="p-2 text-center text-xs font-bold text-gray-500">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-2">{renderCalendar()}</div>
+
+            <div className="mt-4 flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-brand-gold rounded"></div>
+                <span>Working</span>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-100 border border-red-600 rounded"></div>
+                <span>Day Off</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-gray-100 rounded"></div>
+                <span>Not Set</span>
+              </div>
+            </div>
           </div>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-2">{renderCalendar()}</div>
+          {/* Date Editor Panel */}
+          {selectedDate && selectedHours && (
+            <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4 h-fit sticky top-4">
+              <div>
+                <h3 className="font-bold text-brand-blue mb-1">
+                  {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </h3>
+              </div>
+
+              {/* Day Off Toggle */}
+              <div className="border-b pb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedHours.is_off}
+                    onChange={(e) => updateDateHours(selectedDate, { is_off: e.target.checked })}
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Full day off</span>
+                </label>
+              </div>
+
+              {/* Hours */}
+              {!selectedHours.is_off && (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        value={selectedHours.start_time || ""}
+                        onChange={(e) => updateDateHours(selectedDate, { start_time: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">End Time</label>
+                      <input
+                        type="time"
+                        value={selectedHours.end_time || ""}
+                        onChange={(e) => updateDateHours(selectedDate, { end_time: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Blocked Time Slots */}
+                  <div className="border-t pt-4">
+                    <h4 className="text-xs font-bold text-gray-700 mb-3">🚫 Blocked Time Slots</h4>
+                    
+                    <div className="space-y-2 mb-3">
+                      {selectedHours.blocked_slots.length === 0 ? (
+                        <p className="text-xs text-gray-500">No blocked times</p>
+                      ) : (
+                        selectedHours.blocked_slots.map((slot) => (
+                          <div key={slot} className="flex items-center justify-between bg-red-50 p-2 rounded-lg">
+                            <span className="text-xs font-medium text-red-700">{slot}</span>
+                            <button
+                              onClick={() => removeBlockedSlot(slot)}
+                              className="text-red-600 hover:text-red-800 text-xs font-bold"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <input
+                        type="time"
+                        value={blockTimeStart}
+                        onChange={(e) => setBlockTimeStart(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:border-brand-blue focus:outline-none"
+                        placeholder="From"
+                      />
+                      <input
+                        type="time"
+                        value={blockTimeEnd}
+                        onChange={(e) => setBlockTimeEnd(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:border-brand-blue focus:outline-none"
+                        placeholder="To"
+                      />
+                      <button
+                        onClick={addBlockedSlot}
+                        className="w-full px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-medium rounded-lg transition-colors"
+                      >
+                        + Add Block
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="text-xs text-gray-500 pt-2 border-t">
+                Click another date to edit it, or configure defaults below.
+              </div>
+            </div>
+          )}
         </div>
 
-        <p className="text-xs text-gray-500 mt-2">
-          {workingDates.size} date(s) selected
+        <p className="text-xs text-gray-500 mt-4">
+          {workingDates.size} date(s) configured
         </p>
       </div>
 
       {/* Working Hours Section */}
       <div className="border-t border-gray-200 pt-8">
         <h2 className="text-2xl font-bold text-brand-blue mb-2">Default Working Hours</h2>
-        <p className="text-gray-600 text-sm mb-6">Set your default working hours for selected dates.</p>
+        <p className="text-gray-600 text-sm mb-6">Set default hours that apply to all selected dates (can be overridden per-day above).</p>
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
           <div className="grid grid-cols-2 gap-6">
