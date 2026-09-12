@@ -8,9 +8,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { price, treatment_name, duration_mins, date, start_time } = body;
+    const { price, treatment_name, duration_mins, date, start_time, voucher_code, discount_percentage } = body;
+    const normalizedPrice = Number(price);
+    const normalizedVoucherCode = typeof voucher_code === "string" ? voucher_code.trim().toUpperCase() : "";
 
-    if (!price || !treatment_name) {
+    if (!normalizedPrice || !treatment_name) {
       return NextResponse.json({ error: "Missing price or treatment name" }, { status: 400 });
     }
 
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
               name: treatment_name,
               description: `${duration_mins} minute session on ${date} at ${start_time}`,
             },
-            unit_amount: Math.round(price * 100), // Convert to pence
+            unit_amount: Math.round(normalizedPrice * 100), // Convert to pence
           },
           quantity: 1,
         },
@@ -37,6 +39,8 @@ export async function POST(req: NextRequest) {
         duration_mins,
         date,
         start_time,
+        voucher_code: normalizedVoucherCode,
+        discount_percentage: discount_percentage ? String(discount_percentage) : "0",
       },
     });
 

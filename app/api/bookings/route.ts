@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { Resend } from "resend";
 import { BookingValidationError, validateAndPrepareBooking } from "@/lib/booking-flow";
+import { normalizeVoucherCode } from "@/lib/vouchers";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2023-10-16",
@@ -138,15 +139,48 @@ function metadataMatchesBooking(
   paymentIntent: Stripe.PaymentIntent,
   booking: Awaited<ReturnType<typeof validateAndPrepareBooking>>["normalizedBooking"],
   paymentAttemptId: string,
+  discountPercentage: number,
+  baseAmountInPence: number,
+  discountAmountInPence: number,
 ) {
+  const voucherCode = booking.voucher_code || "";
   return (
     paymentIntent.metadata?.booking_flow === "joshsport_booking_v1" &&
     paymentIntent.metadata?.payment_attempt_id === paymentAttemptId &&
     paymentIntent.metadata?.treatment_id === booking.treatment_id &&
     paymentIntent.metadata?.date === booking.date &&
     paymentIntent.metadata?.start_time === booking.start_time &&
-    paymentIntent.metadata?.duration_mins === String(booking.duration_mins)
+    paymentIntent.metadata?.duration_mins === String(booking.duration_mins) &&
+    (paymentIntent.metadata?.voucher_code || "") === voucherCode &&
+    paymentIntent.metadata?.discount_percentage === String(discountPercentage) &&
+    paymentIntent.metadata?.base_amount_pence === String(baseAmountInPence) &&
+    paymentIntent.metadata?.discount_amount_pence === String(discountAmountInPence)
   );
+}
+
+async function incrementVoucherUsage(voucherCode: string) {
+  const normalizedCode = normalizeVoucherCode(voucherCode);
+  if (!normalizedCode) return;
+
+  const { data: voucher, error: voucherError } = await supabaseAdmin
+    .from("vouchers")
+    .select("id, uses_count")
+    .eq("code", normalizedCode)
+    .maybeSingle();
+
+  if (voucherError || !voucher) {
+    if (voucherError) console.error("Voucher usage lookup failed:", voucherError);
+    return;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("vouchers")
+    .update({ uses_count: (voucher.uses_count ?? 0) + 1 })
+    .eq("id", voucher.id);
+
+  if (error) {
+    console.error("Voucher usage increment failed:", error);
+  }
 }
 
 function isStripeLiveModeExpected() {
@@ -183,7 +217,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Payment amount mismatch." }, { status: 400 });
     }
 
-    if (!metadataMatchesBooking(paymentIntent, preparedBooking.normalizedBooking, paymentAttemptId)) {
+    if (
+      !metadataMatchesBooking(
+        paymentIntent,
+        preparedBooking.normalizedBooking,
+        paymentAttemptId,
+        preparedBooking.discountPercentage,
+        preparedBooking.baseAmountInPence,
+        preparedBooking.discountAmountInPence,
+      )
+    ) {
       return NextResponse.json({ error: "Payment details do not match this booking." }, { status: 400 });
     }
 
@@ -208,6 +251,7 @@ export async function POST(request: Request) {
 
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
+      voucher_code: preparedBooking.normalizedBooking.voucher_code || null,
       payment_intent_id: paymentIntentId,
       status: "confirmed",
     };
@@ -225,6 +269,10 @@ export async function POST(request: Request) {
         }
       }
       throw error;
+    }
+
+    if (preparedBooking.normalizedBooking.voucher_code) {
+      await incrementVoucherUsage(preparedBooking.normalizedBooking.voucher_code);
     }
 
     await sendBookingEmails(preparedBooking.normalizedBooking);

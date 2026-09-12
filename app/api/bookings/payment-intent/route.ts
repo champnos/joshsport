@@ -23,6 +23,8 @@ export async function POST(request: Request) {
       client_email: preparedBooking.normalizedBooking.client_email,
       client_phone: preparedBooking.normalizedBooking.client_phone,
       amount: preparedBooking.amountInPence,
+      voucher_code: preparedBooking.normalizedBooking.voucher_code,
+      discount_percentage: preparedBooking.discountPercentage,
       payment_attempt_id: paymentAttemptId,
     });
     const idempotencyKey = `booking-intent-${createHash("sha256").update(idempotencySeed).digest("hex")}`;
@@ -43,6 +45,10 @@ export async function POST(request: Request) {
         client_name: preparedBooking.normalizedBooking.client_name,
         client_email: preparedBooking.normalizedBooking.client_email,
         client_postcode: preparedBooking.normalizedBooking.client_postcode,
+        voucher_code: preparedBooking.normalizedBooking.voucher_code || "",
+        discount_percentage: String(preparedBooking.discountPercentage),
+        base_amount_pence: String(preparedBooking.baseAmountInPence),
+        discount_amount_pence: String(preparedBooking.discountAmountInPence),
       },
     }, { idempotencyKey });
 

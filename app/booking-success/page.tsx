@@ -1,7 +1,19 @@
+"use client";
+
 import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 function BookingSuccessInner() {
+  const searchParams = useSearchParams();
+  const voucherCode = searchParams.get("voucher") || "";
+  const original = Number.parseInt(searchParams.get("original") || "", 10);
+  const discount = Number.parseInt(searchParams.get("discount") || "", 10);
+  const finalAmount = Number.parseInt(searchParams.get("final") || "", 10);
+  const hasDiscountDetails = voucherCode && Number.isFinite(original) && Number.isFinite(discount) && Number.isFinite(finalAmount);
+
+  const formatPrice = (value: number) => (value / 100).toFixed(2);
+
   return (
     <div className="min-h-screen bg-white">
       <div className="bg-brand-blue py-12 px-4 sm:px-6 lg:px-8">
@@ -36,6 +48,26 @@ function BookingSuccessInner() {
             </li>
           </ul>
         </div>
+
+        {hasDiscountDetails && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8">
+            <h3 className="text-lg font-bold text-brand-blue mb-4">Voucher Applied</h3>
+            <div className="space-y-2 text-sm text-gray-700">
+              <div className="flex justify-between">
+                <span>Original price</span>
+                <span>£{formatPrice(original)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Voucher ({voucherCode})</span>
+                <span>-£{formatPrice(discount)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-brand-blue border-t border-gray-100 pt-2">
+                <span>Final price paid</span>
+                <span>£{formatPrice(finalAmount)}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-4 justify-center">
           <Link

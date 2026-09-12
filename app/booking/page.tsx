@@ -32,6 +32,13 @@ interface DistanceCheckResponse {
   withinRange: boolean;
 }
 
+interface VoucherValidationResponse {
+  valid: boolean;
+  code?: string;
+  discount_percentage?: number;
+  error?: string;
+}
+
 const MEDICAL_CONDITIONS_FALLBACK = [
   "Heart conditions",
   "High or low blood pressure",
@@ -57,6 +64,10 @@ function formatTime(t: string) {
   const period = h >= 12 ? "pm" : "am";
   const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
   return `${hour}:${m.toString().padStart(2, "0")}${period}`;
+}
+
+function formatPriceFromPence(value: number) {
+  return (value / 100).toFixed(2);
 }
 
 const STEPS = ["Treatment", "Date & Time", "Your Details", "Emergency Contact", "Medical History", "Injury History", "Confirm & Pay"];
@@ -160,6 +171,10 @@ function BookingInner() {
   const [error, setError] = useState("");
   const [paymentClientSecret, setPaymentClientSecret] = useState("");
   const [paymentAttemptId, setPaymentAttemptId] = useState("");
+  const [voucherCodeInput, setVoucherCodeInput] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discountPercentage: number } | null>(null);
+  const [validatingVoucher, setValidatingVoucher] = useState(false);
+  const [voucherMessage, setVoucherMessage] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const distanceCheckRequestRef = useRef(0);
@@ -211,6 +226,11 @@ function BookingInner() {
 
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
   const selectedPrice = selectedTreatment?.durations.find((d) => d.mins === duration)?.price || 0;
+  const selectedPricePence = Math.round(selectedPrice * 100);
+  const voucherDiscountPence = appliedVoucher
+    ? Math.round((selectedPricePence * appliedVoucher.discountPercentage) / 100)
+    : 0;
+  const finalPricePence = Math.max(selectedPricePence - voucherDiscountPence, 0);
 
   const buildBookingPayload = () => ({
     treatment_id: treatmentId,
@@ -233,6 +253,7 @@ function BookingInner() {
     injury_recent_notes: injuryRecentNotes,
     injury_previous: injuryPrevious ?? false,
     injury_previous_notes: injuryPreviousNotes,
+    voucher_code: appliedVoucher?.code || "",
     terms_accepted: termsAccepted,
   });
   const ageValidation = getAgeValidation(clientDob);
@@ -403,6 +424,49 @@ function BookingInner() {
     };
   }, [closeTermsModal, showTermsModal]);
 
+  const applyVoucherCode = async () => {
+    if (!voucherCodeInput.trim()) {
+      setVoucherMessage("Enter a voucher code first.");
+      return;
+    }
+
+    setValidatingVoucher(true);
+    setVoucherMessage("");
+
+    try {
+      const response = await fetch("/api/vouchers/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: voucherCodeInput }),
+      });
+      const payload = (await response.json()) as VoucherValidationResponse;
+
+      if (!response.ok || !payload.valid || !payload.code || payload.discount_percentage === undefined) {
+        setAppliedVoucher(null);
+        setVoucherMessage(payload.error ?? "Voucher code is not valid.");
+        return;
+      }
+
+      setAppliedVoucher({
+        code: payload.code,
+        discountPercentage: payload.discount_percentage,
+      });
+      setVoucherCodeInput(payload.code);
+      setVoucherMessage(`Voucher applied: ${payload.code} (${payload.discount_percentage}% off)`);
+    } catch {
+      setAppliedVoucher(null);
+      setVoucherMessage("Unable to validate voucher right now.");
+    } finally {
+      setValidatingVoucher(false);
+    }
+  };
+
+  const removeVoucherCode = () => {
+    setAppliedVoucher(null);
+    setVoucherCodeInput("");
+    setVoucherMessage("");
+  };
+
   const handlePayment = async () => {
     if (!selectedTreatment || !duration) return;
 
@@ -497,7 +561,14 @@ function BookingInner() {
         return;
       }
 
-      window.location.assign("/booking-success");
+      const successParams = new URLSearchParams();
+      if (appliedVoucher) {
+        successParams.set("voucher", appliedVoucher.code);
+        successParams.set("original", String(selectedPricePence));
+        successParams.set("discount", String(voucherDiscountPence));
+        successParams.set("final", String(finalPricePence));
+      }
+      window.location.assign(`/booking-success${successParams.toString() ? `?${successParams.toString()}` : ""}`);
     } catch (err) {
       console.error("Booking confirmation error:", err);
       setError("Payment succeeded but booking confirmation failed. Please contact support.");
@@ -991,7 +1062,68 @@ function BookingInner() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Price</span>
-                <span className="font-bold text-brand-gold text-base">£{selectedPrice}</span>
+                <span className={`font-bold text-base ${appliedVoucher ? "text-gray-500 line-through" : "text-brand-gold"}`}>
+                  £{formatPriceFromPence(selectedPricePence)}
+                </span>
+              </div>
+              {appliedVoucher && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Voucher ({appliedVoucher.code})</span>
+                    <span className="font-bold text-green-700">-£{formatPriceFromPence(voucherDiscountPence)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Final Price</span>
+                    <span className="font-bold text-brand-gold text-base">£{formatPriceFromPence(finalPricePence)}</span>
+                  </div>
+                </>
+              )}
+              {!appliedVoucher && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Final Price</span>
+                  <span className="font-bold text-brand-gold text-base">£{formatPriceFromPence(finalPricePence)}</span>
+                </div>
+              )}
+              <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                <label className="block text-sm font-semibold text-brand-blue">Voucher code</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    value={voucherCodeInput}
+                    onChange={(event) => {
+                      setVoucherCodeInput(event.target.value.toUpperCase());
+                      if (appliedVoucher && event.target.value.toUpperCase() !== appliedVoucher.code) {
+                        setAppliedVoucher(null);
+                      }
+                      setVoucherMessage("");
+                    }}
+                    placeholder="SUMMER20"
+                    disabled={Boolean(paymentClientSecret)}
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500 disabled:opacity-60"
+                  />
+                  {!appliedVoucher ? (
+                    <button
+                      type="button"
+                      onClick={applyVoucherCode}
+                      disabled={validatingVoucher || Boolean(paymentClientSecret)}
+                      className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {validatingVoucher ? "Checking..." : "Apply"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={removeVoucherCode}
+                      disabled={Boolean(paymentClientSecret)}
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                {voucherMessage && (
+                  <p className={`text-xs ${appliedVoucher ? "text-green-700" : "text-red-600"}`}>{voucherMessage}</p>
+                )}
               </div>
               <hr className="border-brand-blue/10" />
               <div className="flex justify-between text-sm">
@@ -1071,7 +1203,7 @@ function BookingInner() {
                 }
                 className="mt-6 w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {submitting ? "Preparing Payment…" : `Continue to Secure Payment (£${selectedPrice})`}
+                {submitting ? "Preparing Payment…" : `Continue to Secure Payment (£${formatPriceFromPence(finalPricePence)})`}
               </button>
             ) : (
               <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4">
