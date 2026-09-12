@@ -658,7 +658,7 @@ export default function SettingsPage() {
                 Maximum Travel Distance
               </label>
               <p className="text-xs text-gray-600 mb-3">
-                Bookings outside this radius will be rejected automatically.
+                Bookings outside this radius will be rejected automatically. Set to 0 to allow only the therapist&apos;s own postcode.
               </p>
               <div className="flex items-center gap-4">
                 <input
@@ -687,7 +687,7 @@ export default function SettingsPage() {
                   <span className="text-sm text-gray-600">miles</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">0 to 30 miles, default 10 miles</p>
+              <p className="text-xs text-gray-500 mt-2">0 to 30 miles, default 10 miles. 0 = therapist postcode only.</p>
             </div>
           </div>
         </div>

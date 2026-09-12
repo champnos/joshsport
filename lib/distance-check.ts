@@ -98,11 +98,15 @@ export async function validateBookingDistance(postcode: string): Promise<Distanc
   ]);
 
   const distanceMiles = distanceInMiles(therapistCoordinates, clientCoordinates);
+  const withinRange =
+    settings.maxTravelDistanceMiles === 0
+      ? normalizedPostcode === settings.therapistPostcode
+      : distanceMiles <= settings.maxTravelDistanceMiles;
 
   return {
     normalizedPostcode,
     distanceMiles: Number(distanceMiles.toFixed(1)),
     maxTravelDistanceMiles: settings.maxTravelDistanceMiles,
-    withinRange: distanceMiles <= settings.maxTravelDistanceMiles,
+    withinRange,
   };
 }

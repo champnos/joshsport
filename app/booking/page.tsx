@@ -204,11 +204,11 @@ function BookingInner() {
       return;
     }
 
+    setCheckingDistance(true);
+
     let cancelled = false;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(async () => {
-      setCheckingDistance(true);
-
       try {
         const response = await fetch(`/api/distance-check?postcode=${encodeURIComponent(normalizedPostcode)}`, {
           signal: controller.signal,
@@ -227,7 +227,9 @@ function BookingInner() {
         setDistanceMessage(
           result.withinRange
             ? `Within service area — approximately ${result.distanceMiles.toFixed(1)} miles away.`
-            : `Sorry, this postcode is ${result.distanceMiles.toFixed(1)} miles away, outside the ${result.maxTravelDistanceMiles}-mile service area.`,
+            : result.maxTravelDistanceMiles === 0
+              ? "Sorry, bookings are currently limited to the therapist postcode only."
+              : `Sorry, this postcode is ${result.distanceMiles.toFixed(1)} miles away, outside the ${result.maxTravelDistanceMiles}-mile service area.`,
         );
       } catch (err) {
         if ((err as Error).name !== "AbortError" && !cancelled && requestId === distanceCheckRequestRef.current) {
@@ -690,7 +692,9 @@ function BookingInner() {
                   className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  We currently travel up to {maxTravelDistanceMiles} miles from our base location.
+                  {maxTravelDistanceMiles === 0
+                    ? "We are currently accepting bookings only within our therapist postcode."
+                    : `We currently travel up to ${maxTravelDistanceMiles} miles from our base location.`}
                 </p>
                 {checkingDistance && <p className="mt-2 text-xs text-gray-500">Checking travel distance…</p>}
                 {!checkingDistance && distanceMessage && (

@@ -131,7 +131,10 @@ export async function POST(request: Request) {
     if (!distanceCheck.withinRange) {
       return NextResponse.json(
         {
-          error: `This postcode is ${distanceCheck.distanceMiles.toFixed(1)} miles away, which is outside the ${distanceCheck.maxTravelDistanceMiles}-mile service area.`,
+          error:
+            distanceCheck.maxTravelDistanceMiles === 0
+              ? "Bookings are currently limited to the therapist postcode only."
+              : `This postcode is ${distanceCheck.distanceMiles.toFixed(1)} miles away, which is outside the ${distanceCheck.maxTravelDistanceMiles}-mile service area.`,
         },
         { status: 400 },
       );
