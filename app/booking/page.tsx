@@ -901,7 +901,7 @@ function BookingInner() {
 
             <button
               onClick={handlePayment}
-              disabled={submitting || !termsAccepted}
+              disabled={submitting || !termsAccepted || !ageValidation.isAdult || checkingDistance || !distanceCheck?.withinRange}
               className="mt-6 w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {submitting ? "Processing Payment…" : `Pay £${selectedPrice} & Confirm Booking`}

@@ -676,7 +676,12 @@ export default function SettingsPage() {
                     min="0"
                     max="30"
                     value={settings.max_travel_distance_miles}
-                    onChange={(e) => handleSettingChange("max_travel_distance_miles", Number(e.target.value))}
+                    onChange={(e) =>
+                      handleSettingChange(
+                        "max_travel_distance_miles",
+                        e.target.value === "" ? settings.max_travel_distance_miles : Number(e.target.value),
+                      )
+                    }
                     className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                   />
                   <span className="text-sm text-gray-600">miles</span>
