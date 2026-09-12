@@ -23,21 +23,62 @@ export function createBookingCheckoutTokenForBooking(bookingId: string, clientPh
 }
 
 export function verifyBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, token: string) {
+  const logValidationResult = (isValid: boolean, reason: string, details: Record<string, unknown> = {}) => {
+    console.error("Booking checkout token validation result:", {
+      bookingId,
+      hasClientPhone: Boolean(clientPhone),
+      hasClientEmail: Boolean(clientEmail),
+      isValid,
+      reason,
+      ...details,
+    });
+    return isValid;
+  };
+
   const separatorIndex = token.indexOf(".");
-  if (separatorIndex === -1) return false;
+  if (separatorIndex === -1) {
+    return logValidationResult(false, "invalid_token_format", { separatorIndex });
+  }
 
   const expiresAt = token.slice(0, separatorIndex);
   const providedSignature = token.slice(separatorIndex + 1);
-  if (!expiresAt || !providedSignature) return false;
+  if (!expiresAt || !providedSignature) {
+    return logValidationResult(false, "missing_token_parts", {
+      separatorIndex,
+      hasExpiresAt: Boolean(expiresAt),
+      hasProvidedSignature: Boolean(providedSignature),
+    });
+  }
 
   const expiresAtTime = Date.parse(expiresAt);
-  if (!Number.isFinite(expiresAtTime) || expiresAtTime < Date.now()) return false;
+  const currentTime = Date.now();
+  if (!Number.isFinite(expiresAtTime) || expiresAtTime < currentTime) {
+    return logValidationResult(false, "invalid_or_expired_token", {
+      expiresAtTime,
+      currentTime,
+    });
+  }
 
   const expectedToken = signBookingCheckoutToken(bookingId, clientPhone, clientEmail, expiresAt);
   const providedBuffer = Buffer.from(providedSignature);
   const expectedBuffer = Buffer.from(expectedToken);
 
-  if (providedBuffer.length !== expectedBuffer.length) return false;
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return logValidationResult(false, "signature_length_mismatch", {
+      expectedSignatureLength: expectedToken.length,
+      providedSignatureLength: providedSignature.length,
+      expectedBufferLength: expectedBuffer.length,
+      providedBufferLength: providedBuffer.length,
+    });
+  }
 
-  return timingSafeEqual(providedBuffer, expectedBuffer);
+  const isSignatureValid = timingSafeEqual(providedBuffer, expectedBuffer);
+  if (!isSignatureValid) {
+    return logValidationResult(false, "signature_mismatch", {
+      expectedSignatureLength: expectedToken.length,
+      providedSignatureLength: providedSignature.length,
+    });
+  }
+
+  return logValidationResult(true, "token_valid", { expiresAtTime, currentTime });
 }

@@ -46,7 +46,23 @@ export async function POST(req: NextRequest) {
     if (bookingError || !booking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
-    if (!verifyBookingCheckoutToken(bookingId, booking.client_phone || "", normalizeEmail(booking.client_email), checkoutToken)) {
+    const normalizedClientEmail = normalizeEmail(booking.client_email);
+    const isCheckoutTokenValid = verifyBookingCheckoutToken(
+      bookingId,
+      booking.client_phone || "",
+      normalizedClientEmail,
+      checkoutToken,
+    );
+
+    console.error("Stripe checkout token verification result:", {
+      bookingId,
+      checkoutTokenLength: checkoutToken.length,
+      hasClientPhone: Boolean(booking.client_phone),
+      hasClientEmail: Boolean(normalizedClientEmail),
+      isCheckoutTokenValid,
+    });
+
+    if (!isCheckoutTokenValid) {
       return NextResponse.json({ error: "Invalid checkout token" }, { status: 403 });
     }
 
@@ -78,7 +94,6 @@ export async function POST(req: NextRequest) {
       unitAmount = Math.round(price * 100);
     }
 
-    const normalizedClientEmail = normalizeEmail(booking.client_email);
     const successUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking-success`);
     successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
     successUrl.searchParams.set("booking_id", booking.id);
