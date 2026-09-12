@@ -54,7 +54,6 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
   const currentTime = Date.now();
   if (!Number.isFinite(expiresAtTime) || expiresAtTime < currentTime) {
     return logValidationResult(false, "invalid_or_expired_token", {
-      expiresAt,
       expiresAtTime,
       currentTime,
     });
@@ -81,5 +80,5 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
     });
   }
 
-  return logValidationResult(true, "token_valid", { expiresAt, expiresAtTime, currentTime });
+  return logValidationResult(true, "token_valid", { expiresAtTime, currentTime });
 }
