@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
+import { getAgeValidation, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
+import { TERMS_ACCEPTANCE_LABEL, TERMS_AND_CONDITIONS } from "@/lib/terms-and-conditions";
 
 interface DurationOption {
   mins: number;
@@ -20,6 +22,13 @@ interface TreatmentOption {
 interface WorkingDateSummary {
   date: string;
   available: boolean;
+}
+
+interface DistanceCheckResponse {
+  normalizedPostcode: string;
+  distanceMiles: number;
+  maxTravelDistanceMiles: number;
+  withinRange: boolean;
 }
 
 const MEDICAL_CONDITIONS_FALLBACK = [
@@ -61,6 +70,7 @@ function BookingInner() {
   const [duration, setDuration] = useState<number | null>(null);
 
   const [bookingWindowDays, setBookingWindowDays] = useState(30);
+  const [maxTravelDistanceMiles, setMaxTravelDistanceMiles] = useState(10);
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [date, setDate] = useState("");
@@ -74,6 +84,9 @@ function BookingInner() {
   const [clientPhone, setClientPhone] = useState("");
   const [clientAddress, setClientAddress] = useState("");
   const [clientPostcode, setClientPostcode] = useState("");
+  const [distanceCheck, setDistanceCheck] = useState<DistanceCheckResponse | null>(null);
+  const [distanceMessage, setDistanceMessage] = useState("");
+  const [checkingDistance, setCheckingDistance] = useState(false);
 
   const [emergencyName, setEmergencyName] = useState("");
   const [emergencyRelationship, setEmergencyRelationship] = useState("");
@@ -89,6 +102,8 @@ function BookingInner() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Load treatments, settings, and working dates on mount
   useEffect(() => {
@@ -106,6 +121,11 @@ function BookingInner() {
         if (settingsRes.ok) {
           const settingsData = await settingsRes.json();
           setBookingWindowDays(settingsData.booking_window_days || 30);
+          setMaxTravelDistanceMiles(
+            typeof settingsData.max_travel_distance_miles === "number"
+              ? settingsData.max_travel_distance_miles
+              : 10,
+          );
         }
 
         // Load working dates
@@ -130,6 +150,7 @@ function BookingInner() {
 
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
   const selectedPrice = selectedTreatment?.durations.find((d) => d.mins === duration)?.price || 0;
+  const ageValidation = getAgeValidation(clientDob);
 
   useEffect(() => {
     if (selectedTreatment && selectedTreatment.durations.length === 1) {
@@ -161,6 +182,66 @@ function BookingInner() {
     void loadSlots();
   }, [loadSlots]);
 
+  useEffect(() => {
+    const normalizedPostcode = normalizePostcode(clientPostcode);
+
+    setDistanceCheck(null);
+    setDistanceMessage("");
+
+    if (!normalizedPostcode) {
+      setCheckingDistance(false);
+      return;
+    }
+
+    if (!isValidUkPostcode(normalizedPostcode)) {
+      setCheckingDistance(false);
+      setDistanceMessage("Please enter a valid UK postcode.");
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setCheckingDistance(true);
+
+      try {
+        const response = await fetch(`/api/distance-check?postcode=${encodeURIComponent(normalizedPostcode)}`, {
+          signal: controller.signal,
+        });
+        const payload = await response.json();
+
+        if (cancelled) return;
+
+        if (!response.ok) {
+          setDistanceMessage(payload.error ?? "Unable to check your postcode right now.");
+          return;
+        }
+
+        const result = payload as DistanceCheckResponse;
+        setDistanceCheck(result);
+        setDistanceMessage(
+          result.withinRange
+            ? `Within service area — approximately ${result.distanceMiles.toFixed(1)} miles away.`
+            : `Sorry, this postcode is ${result.distanceMiles.toFixed(1)} miles away, outside the ${result.maxTravelDistanceMiles}-mile service area.`,
+        );
+      } catch (err) {
+        if ((err as Error).name !== "AbortError" && !cancelled) {
+          setDistanceMessage("Unable to check your postcode right now.");
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckingDistance(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [clientPostcode]);
+
   const toggleCondition = (cond: string) => {
     setMedicalConditions((prev) => {
       if (cond === "None of the above") {
@@ -173,8 +254,33 @@ function BookingInner() {
 
   const hasNonNoneConditions = medicalConditions.some((c) => c !== "None of the above");
 
+  const handleTermsCheckboxChange = () => {
+    if (termsAccepted) {
+      setTermsAccepted(false);
+      return;
+    }
+
+    setShowTermsModal(true);
+  };
+
   const handlePayment = async () => {
     if (!selectedTreatment || !duration) return;
+
+    if (!ageValidation.isAdult) {
+      setError(ageValidation.error || `You must be at least ${MINIMUM_BOOKING_AGE} years old to book a massage.`);
+      return;
+    }
+
+    if (!distanceCheck?.withinRange) {
+      setError(distanceMessage || "Please enter a postcode within the service area before booking.");
+      return;
+    }
+
+    if (!termsAccepted) {
+      setError("Please read and accept the terms and conditions before booking.");
+      return;
+    }
+
     setSubmitting(true);
     setError("");
     try {
@@ -190,7 +296,7 @@ function BookingInner() {
         client_dob: clientDob,
         client_phone: clientPhone,
         client_address: clientAddress,
-        client_postcode: clientPostcode,
+        client_postcode: distanceCheck.normalizedPostcode,
         emergency_name: emergencyName,
         emergency_relationship: emergencyRelationship,
         emergency_phone: emergencyPhone,
@@ -200,6 +306,7 @@ function BookingInner() {
         injury_recent_notes: injuryRecentNotes,
         injury_previous: injuryPrevious ?? false,
         injury_previous_notes: injuryPreviousNotes,
+        terms_accepted: termsAccepted,
       };
 
       const bookingRes = await fetch("/api/bookings", {
@@ -481,16 +588,14 @@ function BookingInner() {
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-2">Your Details</h2>
             <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6">
-              Remember, the massage visit is at your home/selected location, please make sure all details are correct.
+              You must be at least {MINIMUM_BOOKING_AGE} and within our {maxTravelDistanceMiles}-mile travel area to book. The massage visit is at your home/selected location, so please make sure all details are correct.
             </p>
             <div className="space-y-4">
               {[
                 { label: "Full Name", value: clientName, setter: setClientName, type: "text", placeholder: "Your full name" },
                 { label: "Email Address", value: clientEmail, setter: setClientEmail, type: "email", placeholder: "your@email.com" },
-                { label: "Date of Birth", value: clientDob, setter: setClientDob, type: "date", placeholder: "" },
                 { label: "Phone Number", value: clientPhone, setter: setClientPhone, type: "tel", placeholder: "07..." },
                 { label: "Home Address", value: clientAddress, setter: setClientAddress, type: "text", placeholder: "Street address" },
-                { label: "Postcode", value: clientPostcode, setter: setClientPostcode, type: "text", placeholder: "BS1 1AA" },
               ].map(({ label, value, setter, type, placeholder }) => (
                 <div key={label}>
                   <label className="block text-sm font-semibold text-brand-blue mb-1">{label}</label>
@@ -503,6 +608,43 @@ function BookingInner() {
                   />
                 </div>
               ))}
+
+              <div>
+                <label className="block text-sm font-semibold text-brand-blue mb-1">Date of Birth</label>
+                <input
+                  type="date"
+                  value={clientDob}
+                  onChange={(e) => setClientDob(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                />
+                {clientDob && (
+                  <p className={`mt-2 text-xs ${ageValidation.isAdult ? "text-green-700" : "text-red-600"}`}>
+                    {ageValidation.isAdult
+                      ? `Age verified: ${ageValidation.age} years old.`
+                      : ageValidation.error}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-brand-blue mb-1">Postcode</label>
+                <input
+                  type="text"
+                  value={clientPostcode}
+                  onChange={(e) => setClientPostcode(e.target.value.toUpperCase())}
+                  placeholder="BS1 1AA"
+                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  We currently travel up to {maxTravelDistanceMiles} miles from our base location.
+                </p>
+                {checkingDistance && <p className="mt-2 text-xs text-gray-500">Checking travel distance…</p>}
+                {!checkingDistance && distanceMessage && (
+                  <p className={`mt-2 text-xs ${distanceCheck?.withinRange ? "text-green-700" : "text-red-600"}`}>
+                    {distanceMessage}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="mt-8 flex justify-between">
               <button onClick={() => setStep(2)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
@@ -510,7 +652,17 @@ function BookingInner() {
               </button>
               <button
                 onClick={() => setStep(4)}
-                disabled={!clientName || !clientEmail || !clientDob || !clientPhone || !clientAddress || !clientPostcode}
+                disabled={
+                  !clientName ||
+                  !clientEmail ||
+                  !clientDob ||
+                  !clientPhone ||
+                  !clientAddress ||
+                  !clientPostcode ||
+                  !ageValidation.isAdult ||
+                  checkingDistance ||
+                  !distanceCheck?.withinRange
+                }
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next <ChevronRight className="h-4 w-4" />
@@ -709,13 +861,47 @@ function BookingInner() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Address</span>
-                <span className="font-semibold text-brand-blue text-right">{clientAddress}, {clientPostcode}</span>
+                <span className="font-semibold text-brand-blue text-right">
+                  {clientAddress}, {distanceCheck?.normalizedPostcode || normalizePostcode(clientPostcode)}
+                </span>
               </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-brand-blue">Terms & Conditions</h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Please review the massage terms before completing payment.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="shrink-0 rounded-lg border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5"
+                >
+                  Read terms
+                </button>
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={handleTermsCheckboxChange}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-brand-gold"
+                />
+                <span className="text-sm text-gray-700">{TERMS_ACCEPTANCE_LABEL}</span>
+              </label>
+
+              <p className="text-xs text-gray-500">
+                Payment is only enabled once the terms have been accepted.
+              </p>
             </div>
 
             <button
               onClick={handlePayment}
-              disabled={submitting}
+              disabled={submitting || !termsAccepted}
               className="mt-6 w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {submitting ? "Processing Payment…" : `Pay £${selectedPrice} & Confirm Booking`}
@@ -729,6 +915,68 @@ function BookingInner() {
           </div>
         )}
       </div>
+
+      {showTermsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue/70 px-4 py-8">
+          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h2 className="text-xl font-bold text-brand-blue">{TERMS_AND_CONDITIONS.title}</h2>
+                <p className="mt-1 text-sm text-gray-600">{TERMS_AND_CONDITIONS.intro}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTermsModal(false)}
+                className="text-sm font-semibold text-gray-500 hover:text-brand-blue"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="max-h-[65vh] space-y-6 overflow-y-auto px-6 py-5">
+              {TERMS_AND_CONDITIONS.sections.map((section) => (
+                <section key={section.title}>
+                  <h3 className="text-base font-bold text-brand-blue">{section.title}</h3>
+                  <ul className="mt-2 space-y-2 text-sm text-gray-700">
+                    {section.bullets.map((bullet) => (
+                      <li key={bullet} className="flex gap-2">
+                        <span className="mt-1 text-brand-gold">•</span>
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-gray-500">
+                By accepting, you confirm you have read and understood these booking terms.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTermsAccepted(true);
+                    setShowTermsModal(false);
+                    setError("");
+                  }}
+                  className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-bold text-brand-blue hover:opacity-90"
+                >
+                  {TERMS_ACCEPTANCE_LABEL}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

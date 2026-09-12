@@ -8,6 +8,8 @@ interface Settings {
   buffer_mins_after_booking: number;
   default_start_time: string;
   default_end_time: string;
+  therapist_postcode: string;
+  max_travel_distance_miles: number;
   instagram?: string;
   facebook?: string;
   tiktok?: string;
@@ -29,6 +31,8 @@ export default function SettingsPage() {
     buffer_mins_after_booking: 30,
     default_start_time: "09:00",
     default_end_time: "17:00",
+    therapist_postcode: "",
+    max_travel_distance_miles: 10,
     instagram: "",
     facebook: "",
     tiktok: "",
@@ -193,6 +197,8 @@ export default function SettingsPage() {
           buffer_mins_after_booking: settings.buffer_mins_after_booking,
           default_start_time: settings.default_start_time,
           default_end_time: settings.default_end_time,
+          therapist_postcode: settings.therapist_postcode,
+          max_travel_distance_miles: settings.max_travel_distance_miles,
         }),
       });
       if (!settingsRes.ok) throw new Error("Failed to save settings");
@@ -628,6 +634,56 @@ export default function SettingsPage() {
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-2">0 to 120 minutes</p>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-brand-blue mb-2">
+                Therapist Postcode
+              </label>
+              <p className="text-xs text-gray-600 mb-3">
+                Used privately to check whether a client&apos;s postcode is within your travel area.
+              </p>
+              <input
+                type="text"
+                value={settings.therapist_postcode}
+                onChange={(e) => handleSettingChange("therapist_postcode", e.target.value.toUpperCase())}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                placeholder="SW1A 1AA"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-brand-blue mb-2">
+                Maximum Travel Distance
+              </label>
+              <p className="text-xs text-gray-600 mb-3">
+                Bookings outside this radius will be rejected automatically.
+              </p>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="1"
+                  value={settings.max_travel_distance_miles}
+                  onChange={(e) => handleSettingChange("max_travel_distance_miles", Number(e.target.value))}
+                  className="flex-1 cursor-pointer"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    value={settings.max_travel_distance_miles}
+                    onChange={(e) => handleSettingChange("max_travel_distance_miles", Number(e.target.value))}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                  />
+                  <span className="text-sm text-gray-600">miles</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">0 to 30 miles, default 10 miles</p>
+            </div>
           </div>
         </div>
 

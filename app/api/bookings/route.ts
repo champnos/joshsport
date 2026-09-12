@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
+import { getAgeValidation } from "@/lib/booking-rules";
+import { validateBookingDistance, type DistanceCheckResult } from "@/lib/distance-check";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -20,6 +22,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const termsAccepted = body.terms_accepted === true;
     const normalizedBooking = {
       treatment_id: body.treatment_id,
       treatment_name: typeof body.treatment_name === "string" ? body.treatment_name.trim() : "",
@@ -54,19 +57,7 @@ export async function POST(request: Request) {
       client_postcode,
       client_email,
     } = normalizedBooking;
-
-    const dobMatch = client_dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    let isValidDob = false;
-    if (dobMatch) {
-      const year = Number(dobMatch[1]);
-      const month = Number(dobMatch[2]);
-      const day = Number(dobMatch[3]);
-      const parsedDob = new Date(Date.UTC(year, month - 1, day));
-      isValidDob =
-        parsedDob.getUTCFullYear() === year &&
-        parsedDob.getUTCMonth() === month - 1 &&
-        parsedDob.getUTCDate() === day;
-    }
+    const ageValidation = getAgeValidation(client_dob);
     const hasLeadingPlus = client_phone.startsWith("+");
     const normalizedPhone = `${hasLeadingPlus ? "+" : ""}${client_phone.replace(/\D/g, "")}`;
     const isValidPhone = /^\+?\d{7,15}$/.test(normalizedPhone);
@@ -85,8 +76,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    if (!isValidDob) {
-      return NextResponse.json({ error: "Date of birth must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+    if (ageValidation.error) {
+      return NextResponse.json({ error: ageValidation.error }, { status: 400 });
+    }
+
+    if (!ageValidation.isAdult) {
+      return NextResponse.json({ error: "You must be at least 18 years old to book a massage." }, { status: 400 });
+    }
+
+    if (!termsAccepted) {
+      return NextResponse.json({ error: "You must accept the terms and conditions before booking." }, { status: 400 });
     }
 
     if (!isValidPhone) {
@@ -121,7 +120,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Selected time is no longer available." }, { status: 409 });
     }
 
-    const insertPayload = { ...normalizedBooking, status: "pending" };
+    let distanceCheck: DistanceCheckResult;
+    try {
+      distanceCheck = await validateBookingDistance(client_postcode);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to check service area.";
+      const status = message.includes("valid UK postcode") ? 400 : message.includes("not configured") ? 503 : 502;
+      return NextResponse.json({ error: message }, { status });
+    }
+
+    if (!distanceCheck.withinRange) {
+      return NextResponse.json(
+        {
+          error: `This postcode is ${distanceCheck.distanceMiles.toFixed(1)} miles away, which is outside the ${distanceCheck.maxTravelDistanceMiles}-mile service area.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const insertPayload = {
+      ...normalizedBooking,
+      client_postcode: distanceCheck.normalizedPostcode,
+      status: "pending",
+    };
 
     const { data, error } = await supabase.from("bookings").insert([insertPayload]).select().single();
     if (error) throw error;
