@@ -14,18 +14,23 @@ interface BookingConfirmationSummary {
 function BookingSuccessInner() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("booking_id") || "";
+  const checkoutToken = searchParams.get("token") || "";
   const confirmationToken = searchParams.get("confirmation_token") || "";
   const [summary, setSummary] = useState<BookingConfirmationSummary | null>(null);
 
   useEffect(() => {
-    if (!bookingId || !confirmationToken) return;
+    if (!bookingId || (!checkoutToken && !confirmationToken)) return;
     let cancelled = false;
 
     const loadSummary = async () => {
       try {
-        const response = await fetch(
-          `/api/bookings/confirmation/${bookingId}?token=${encodeURIComponent(confirmationToken)}`,
-        );
+        const response = checkoutToken
+          ? await fetch(`/api/bookings/confirmation/${bookingId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ checkoutToken }),
+            })
+          : await fetch(`/api/bookings/confirmation/${bookingId}?token=${encodeURIComponent(confirmationToken)}`);
         if (!response.ok) return;
         const payload = (await response.json()) as BookingConfirmationSummary;
         if (!cancelled) setSummary(payload);
@@ -38,7 +43,7 @@ function BookingSuccessInner() {
     return () => {
       cancelled = true;
     };
-  }, [bookingId, confirmationToken]);
+  }, [bookingId, checkoutToken, confirmationToken]);
 
   const formatPrice = (value: number) => (value / 100).toFixed(2);
   const hasDiscountDetails = Boolean(
