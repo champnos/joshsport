@@ -105,6 +105,8 @@ function BookingInner() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const distanceCheckRequestRef = useRef(0);
+  const previousFocusedElementRef = useRef<HTMLElement | null>(null);
+  const termsDialogRef = useRef<HTMLDivElement | null>(null);
 
   // Load treatments, settings, and working dates on mount
   useEffect(() => {
@@ -257,14 +259,63 @@ function BookingInner() {
 
   const hasNonNoneConditions = medicalConditions.some((c) => c !== "None of the above");
 
+  const openTermsModal = useCallback(() => {
+    previousFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setShowTermsModal(true);
+  }, []);
+
+  const closeTermsModal = useCallback(() => {
+    setShowTermsModal(false);
+    window.setTimeout(() => previousFocusedElementRef.current?.focus(), 0);
+  }, []);
+
   const handleTermsCheckboxChange = () => {
     if (termsAccepted) {
       setTermsAccepted(false);
       return;
     }
 
-    setShowTermsModal(true);
+    openTermsModal();
   };
+
+  useEffect(() => {
+    if (!showTermsModal) return;
+
+    const dialog = termsDialogRef.current;
+    if (!dialog) return;
+
+    const focusableElements = Array.from(
+      dialog.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    firstElement?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeTermsModal();
+        return;
+      }
+
+      if (event.key !== "Tab" || focusableElements.length === 0) return;
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement?.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement?.focus();
+      }
+    };
+
+    dialog.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      dialog.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeTermsModal, showTermsModal]);
 
   const handlePayment = async () => {
     if (!selectedTreatment || !duration) return;
@@ -880,7 +931,7 @@ function BookingInner() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowTermsModal(true)}
+                  onClick={openTermsModal}
                   className="shrink-0 rounded-lg border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5"
                 >
                   Read terms
@@ -904,7 +955,19 @@ function BookingInner() {
 
             <button
               onClick={handlePayment}
-              disabled={submitting || !termsAccepted || !ageValidation.isAdult || checkingDistance || !distanceCheck?.withinRange}
+              disabled={
+                submitting ||
+                !clientName ||
+                !clientEmail ||
+                !clientDob ||
+                !clientPhone ||
+                !clientAddress ||
+                !clientPostcode ||
+                !termsAccepted ||
+                !ageValidation.isAdult ||
+                checkingDistance ||
+                !distanceCheck?.withinRange
+              }
               className="mt-6 w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {submitting ? "Processing Payment…" : `Pay £${selectedPrice} & Confirm Booking`}
@@ -922,9 +985,11 @@ function BookingInner() {
       {showTermsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue/70 px-4 py-8">
           <div
+            ref={termsDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="terms-modal-title"
+            aria-describedby="terms-modal-description"
             className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
@@ -932,11 +997,13 @@ function BookingInner() {
                 <h2 id="terms-modal-title" className="text-xl font-bold text-brand-blue">
                   {TERMS_AND_CONDITIONS.title}
                 </h2>
-                <p className="mt-1 text-sm text-gray-600">{TERMS_AND_CONDITIONS.intro}</p>
+                <p id="terms-modal-description" className="mt-1 text-sm text-gray-600">
+                  {TERMS_AND_CONDITIONS.intro}
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowTermsModal(false)}
+                onClick={closeTermsModal}
                 className="text-sm font-semibold text-gray-500 hover:text-brand-blue"
               >
                 Close
@@ -966,7 +1033,7 @@ function BookingInner() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowTermsModal(false)}
+                  onClick={closeTermsModal}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
@@ -975,7 +1042,7 @@ function BookingInner() {
                   type="button"
                   onClick={() => {
                     setTermsAccepted(true);
-                    setShowTermsModal(false);
+                    closeTermsModal();
                     setError("");
                   }}
                   className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-bold text-brand-blue hover:opacity-90"
