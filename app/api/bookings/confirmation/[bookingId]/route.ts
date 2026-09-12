@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { isValidBookingConfirmationToken } from "@/lib/booking-confirmation";
 import { verifyBookingCheckoutToken } from "@/lib/booking-checkout-token";
 import { sendBookingEmails } from "@/lib/booking-emails";
 import type { Booking } from "@/lib/types";
@@ -92,23 +91,6 @@ async function confirmBookingIfNeeded(booking: Booking) {
   return updatedBooking;
 }
 
-async function loadConfirmationSummary(bookingId: string, token: string) {
-  if (!isValidBookingConfirmationToken(token, bookingId)) {
-    return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-  }
-
-  const data = await loadBooking(bookingId);
-  if (!data) {
-    return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-  }
-
-  if (!["confirmed", "completed"].includes(data.status)) {
-    return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-  }
-
-  return NextResponse.json(toBookingResponse(data));
-}
-
 async function confirmBookingWithCheckoutToken(bookingId: string, checkoutToken: string) {
   const booking = await loadBooking(bookingId);
   if (!booking) {
@@ -153,21 +135,6 @@ async function getCheckoutTokenFromBody(request: NextRequest) {
     return typeof token === "string" ? token.trim() : "";
   } catch {
     return "";
-  }
-}
-
-export async function GET(request: NextRequest, { params }: RouteContext) {
-  try {
-    const url = new URL(request.url);
-    const token = url.searchParams.get("token")?.trim() || "";
-    if (!token) {
-      return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-    }
-
-    return await loadConfirmationSummary(params.bookingId, token);
-  } catch (error) {
-    console.error("Failed to load booking confirmation:", error);
-    return NextResponse.json({ error: "Unable to load booking confirmation." }, { status: 500 });
   }
 }
 
