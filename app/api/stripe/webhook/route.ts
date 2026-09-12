@@ -9,36 +9,25 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 async function findBookingForCharge(charge: Stripe.Charge) {
-  const treatmentId = charge.metadata?.treatment_id?.trim();
-  const date = charge.metadata?.date?.trim();
-  const startTime = charge.metadata?.start_time?.trim();
-  const clientEmail = charge.metadata?.client_email?.trim();
+  const paymentIntentId =
+    typeof charge.payment_intent === "string"
+      ? charge.payment_intent
+      : charge.payment_intent?.id;
 
-  if (!treatmentId || !date || !startTime) {
-    return null;
-  }
+  if (!paymentIntentId) return null;
 
-  let query = supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("bookings")
     .select("id, status")
-    .eq("treatment_id", treatmentId)
-    .eq("date", date)
-    .eq("start_time", startTime)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (clientEmail) {
-    query = query.eq("client_email", clientEmail);
-  }
-
-  const { data, error } = await query;
+    .eq("payment_intent_id", paymentIntentId)
+    .maybeSingle();
 
   if (error) {
     console.error("Webhook booking lookup failed:", error);
     return null;
   }
 
-  return data?.[0] ?? null;
+  return data ?? null;
 }
 
 export async function POST(req: NextRequest) {
@@ -65,8 +54,14 @@ export async function POST(req: NextRequest) {
     if (!booking) {
       console.log("charge.succeeded received with no matching booking yet", {
         payment_intent: charge.payment_intent,
-        date: charge.metadata?.date,
-        start_time: charge.metadata?.start_time,
+      });
+      return NextResponse.json({ received: true });
+    }
+
+    if (booking.status === "cancelled" || booking.status === "completed") {
+      console.log("Skipping charge.succeeded status update for terminal booking state", {
+        bookingId: booking.id,
+        status: booking.status,
       });
       return NextResponse.json({ received: true });
     }
@@ -88,18 +83,34 @@ export async function POST(req: NextRequest) {
     if (!booking) {
       console.log("charge.failed received with no matching booking", {
         payment_intent: charge.payment_intent,
-        date: charge.metadata?.date,
-        start_time: charge.metadata?.start_time,
       });
       return NextResponse.json({ received: true });
     }
 
     if (booking.status === "completed" || booking.status === "confirmed") {
-      console.warn("Skipping cancellation for already confirmed/completed booking after charge.failed", {
-        bookingId: booking.id,
-        status: booking.status,
-      });
-      return NextResponse.json({ received: true });
+      if (booking.status === "completed") {
+        console.warn("Skipping cancellation for completed booking after charge.failed", {
+          bookingId: booking.id,
+          status: booking.status,
+        });
+        return NextResponse.json({ received: true });
+      }
+
+      const paymentIntentId =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : charge.payment_intent?.id;
+
+      if (paymentIntentId) {
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        if (paymentIntent.status === "succeeded") {
+          console.warn("Skipping cancellation for confirmed booking because payment intent is succeeded", {
+            bookingId: booking.id,
+            payment_intent: paymentIntentId,
+          });
+          return NextResponse.json({ received: true });
+        }
+      }
     }
 
     const { error } = await supabaseAdmin.from("bookings").update({ status: "cancelled" }).eq("id", booking.id);

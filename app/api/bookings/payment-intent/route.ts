@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createHash } from "crypto";
 import { BookingValidationError, validateAndPrepareBooking } from "@/lib/booking-flow";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -10,6 +11,21 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const preparedBooking = await validateAndPrepareBooking(body);
+    const paymentAttemptId =
+      body && typeof body === "object" && typeof (body as Record<string, unknown>).payment_attempt_id === "string"
+        ? (body as Record<string, string>).payment_attempt_id.trim()
+        : "";
+    const idempotencySeed = JSON.stringify({
+      treatment_id: preparedBooking.normalizedBooking.treatment_id,
+      duration_mins: preparedBooking.normalizedBooking.duration_mins,
+      date: preparedBooking.normalizedBooking.date,
+      start_time: preparedBooking.normalizedBooking.start_time,
+      client_email: preparedBooking.normalizedBooking.client_email,
+      client_phone: preparedBooking.normalizedBooking.client_phone,
+      amount: preparedBooking.amountInPence,
+      payment_attempt_id: paymentAttemptId,
+    });
+    const idempotencyKey = `booking-intent-${createHash("sha256").update(idempotencySeed).digest("hex")}`;
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: preparedBooking.amountInPence,
@@ -17,6 +33,8 @@ export async function POST(request: Request) {
       automatic_payment_methods: { enabled: true },
       receipt_email: preparedBooking.normalizedBooking.client_email || undefined,
       metadata: {
+        booking_flow: "joshsport_booking_v1",
+        payment_attempt_id: paymentAttemptId,
         treatment_id: preparedBooking.normalizedBooking.treatment_id,
         treatment_name: preparedBooking.normalizedBooking.treatment_name,
         duration_mins: String(preparedBooking.normalizedBooking.duration_mins),
@@ -26,7 +44,7 @@ export async function POST(request: Request) {
         client_email: preparedBooking.normalizedBooking.client_email,
         client_postcode: preparedBooking.normalizedBooking.client_postcode,
       },
-    });
+    }, { idempotencyKey });
 
     if (!paymentIntent.client_secret) {
       throw new Error("PaymentIntent missing client secret.");
@@ -35,6 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
+      paymentIntentStatus: paymentIntent.status,
     });
   } catch (err) {
     if (err instanceof BookingValidationError) {

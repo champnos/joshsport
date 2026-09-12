@@ -134,8 +134,14 @@ async function sendBookingEmails(booking: Awaited<ReturnType<typeof validateAndP
   }
 }
 
-function metadataMatchesBooking(paymentIntent: Stripe.PaymentIntent, booking: Awaited<ReturnType<typeof validateAndPrepareBooking>>["normalizedBooking"]) {
+function metadataMatchesBooking(
+  paymentIntent: Stripe.PaymentIntent,
+  booking: Awaited<ReturnType<typeof validateAndPrepareBooking>>["normalizedBooking"],
+  paymentAttemptId: string,
+) {
   return (
+    paymentIntent.metadata?.booking_flow === "joshsport_booking_v1" &&
+    paymentIntent.metadata?.payment_attempt_id === paymentAttemptId &&
     paymentIntent.metadata?.treatment_id === booking.treatment_id &&
     paymentIntent.metadata?.date === booking.date &&
     paymentIntent.metadata?.start_time === booking.start_time &&
@@ -143,13 +149,23 @@ function metadataMatchesBooking(paymentIntent: Stripe.PaymentIntent, booking: Aw
   );
 }
 
+function isStripeLiveModeExpected() {
+  if (process.env.STRIPE_EXPECT_LIVE_MODE === "true") return true;
+  if (process.env.STRIPE_EXPECT_LIVE_MODE === "false") return false;
+  return process.env.NODE_ENV === "production";
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const paymentIntentId = typeof body.paymentIntentId === "string" ? body.paymentIntentId.trim() : "";
+    const paymentAttemptId = typeof body.payment_attempt_id === "string" ? body.payment_attempt_id.trim() : "";
 
     if (!paymentIntentId) {
       return NextResponse.json({ error: "paymentIntentId is required." }, { status: 400 });
+    }
+    if (!paymentAttemptId) {
+      return NextResponse.json({ error: "payment_attempt_id is required." }, { status: 400 });
     }
 
     const preparedBooking = await validateAndPrepareBooking(body);
@@ -159,21 +175,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Payment has not succeeded." }, { status: 400 });
     }
 
+    if (paymentIntent.livemode !== isStripeLiveModeExpected()) {
+      return NextResponse.json({ error: "Payment mode mismatch." }, { status: 400 });
+    }
+
     if (paymentIntent.currency !== "gbp" || paymentIntent.amount !== preparedBooking.amountInPence) {
       return NextResponse.json({ error: "Payment amount mismatch." }, { status: 400 });
     }
 
-    if (!metadataMatchesBooking(paymentIntent, preparedBooking.normalizedBooking)) {
+    if (!metadataMatchesBooking(paymentIntent, preparedBooking.normalizedBooking, paymentAttemptId)) {
       return NextResponse.json({ error: "Payment details do not match this booking." }, { status: 400 });
+    }
+
+    const { data: existingBooking, error: existingBookingError } = await supabaseAdmin
+      .from("bookings")
+      .select("id, status, treatment_id, date, start_time, client_email")
+      .eq("payment_intent_id", paymentIntentId)
+      .maybeSingle();
+
+    if (existingBookingError) throw existingBookingError;
+    if (existingBooking) {
+      if (
+        existingBooking.treatment_id !== preparedBooking.normalizedBooking.treatment_id ||
+        existingBooking.date !== preparedBooking.normalizedBooking.date ||
+        existingBooking.start_time !== preparedBooking.normalizedBooking.start_time ||
+        (existingBooking.client_email || "") !== (preparedBooking.normalizedBooking.client_email || "")
+      ) {
+        return NextResponse.json({ error: "This payment has already been used for another booking." }, { status: 409 });
+      }
+      return NextResponse.json({ id: existingBooking.id, status: existingBooking.status }, { status: 200 });
     }
 
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
+      payment_intent_id: paymentIntentId,
       status: "confirmed",
     };
 
     const { data, error } = await supabaseAdmin.from("bookings").insert([insertPayload]).select().single();
-    if (error) throw error;
+    if (error) {
+      if (error.code === "23505") {
+        const { data: duplicateBooking } = await supabaseAdmin
+          .from("bookings")
+          .select("id, status")
+          .eq("payment_intent_id", paymentIntentId)
+          .maybeSingle();
+        if (duplicateBooking) {
+          return NextResponse.json({ id: duplicateBooking.id, status: duplicateBooking.status }, { status: 200 });
+        }
+      }
+      throw error;
+    }
 
     await sendBookingEmails(preparedBooking.normalizedBooking);
 

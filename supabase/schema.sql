@@ -31,6 +31,7 @@ create table if not exists bookings (
   injury_recent_notes text,
   injury_previous boolean default false,
   injury_previous_notes text,
+  payment_intent_id text unique,
   status text default 'pending',
   created_at timestamptz default now()
 );
