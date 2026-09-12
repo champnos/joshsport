@@ -23,7 +23,34 @@ export function createBookingCheckoutTokenForBooking(bookingId: string, clientPh
 }
 
 function parseBookingCheckoutTokenExpiry(expiresAt: string) {
-  return /^\d+$/.test(expiresAt) ? Number(expiresAt) : Number.NaN;
+  if (/^\d+$/.test(expiresAt)) {
+    return Number(expiresAt);
+  }
+
+  const parsedLegacyTimestamp = Date.parse(expiresAt);
+  return Number.isFinite(parsedLegacyTimestamp) ? parsedLegacyTimestamp : Number.NaN;
+}
+
+function parseBookingCheckoutToken(token: string) {
+  const signatureMatch = token.match(/[a-f0-9]{64}$/i);
+  if (!signatureMatch || signatureMatch.index === undefined) return null;
+
+  const signatureStartIndex = signatureMatch.index;
+  if (signatureStartIndex < 1) return null;
+
+  const separatorIndex = signatureStartIndex - 1;
+  const separator = token[separatorIndex];
+  if (separator !== "." && separator !== ":") return null;
+
+  const expiresAt = token.slice(0, separatorIndex);
+  const providedSignature = token.slice(signatureStartIndex);
+  if (!expiresAt) return null;
+
+  return {
+    expiresAt,
+    providedSignature,
+    format: separator === "." ? "dot" : "colon",
+  } as const;
 }
 
 export function verifyBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, token: string) {
@@ -39,16 +66,15 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
     return isValid;
   };
 
-  const separatorIndex = token.lastIndexOf(".");
-  if (separatorIndex === -1) {
-    return logValidationResult(false, "invalid_token_format", { separatorIndex });
+  const tokenParts = parseBookingCheckoutToken(token);
+  if (!tokenParts) {
+    return logValidationResult(false, "invalid_token_format");
   }
 
-  const expiresAt = token.slice(0, separatorIndex);
-  const providedSignature = token.slice(separatorIndex + 1);
+  const { expiresAt, providedSignature, format } = tokenParts;
   if (!expiresAt || !providedSignature) {
     return logValidationResult(false, "missing_token_parts", {
-      separatorIndex,
+      format,
       hasExpiresAt: Boolean(expiresAt),
       hasProvidedSignature: Boolean(providedSignature),
     });
