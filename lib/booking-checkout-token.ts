@@ -23,11 +23,7 @@ export function createBookingCheckoutTokenForBooking(bookingId: string, clientPh
 }
 
 function parseBookingCheckoutTokenExpiry(expiresAt: string) {
-  if (/^\d+$/.test(expiresAt)) {
-    return Number(expiresAt);
-  }
-
-  return Date.parse(expiresAt);
+  return /^\d+$/.test(expiresAt) ? Number(expiresAt) : Number.NaN;
 }
 
 export function verifyBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, token: string) {
