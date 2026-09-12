@@ -159,32 +159,9 @@ async function getCheckoutTokenFromBody(request: NextRequest) {
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
     const url = new URL(request.url);
-    const checkoutToken = url.searchParams.get("checkoutToken")?.trim() || "";
-    if (checkoutToken) {
-      return await confirmBookingWithCheckoutToken(params.bookingId, checkoutToken);
-    }
-
     const token = url.searchParams.get("token")?.trim() || "";
     if (!token) {
       return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-    }
-
-    const booking = await loadBooking(params.bookingId);
-    if (!booking) {
-      return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-    }
-
-    const normalizedClientEmail = normalizeEmail(booking.client_email ?? null);
-    if (
-      booking.status === "pending_payment" &&
-      verifyBookingCheckoutToken(params.bookingId, booking.client_phone ?? "", normalizedClientEmail, token)
-    ) {
-      const confirmedBooking = await confirmBookingIfNeeded(booking);
-      if (!confirmedBooking) {
-        return NextResponse.json({ error: "Booking is not awaiting payment" }, { status: 409 });
-      }
-
-      return NextResponse.json({ success: true, ...toBookingResponse(confirmedBooking) });
     }
 
     return await loadConfirmationSummary(params.bookingId, token);
