@@ -10,16 +10,24 @@ function getCheckoutTokenSecret() {
   return secret;
 }
 
-function signBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, expiresAt: string) {
+function signBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, expiresAt: string | number) {
   return createHmac("sha256", getCheckoutTokenSecret())
-    .update([bookingId, clientPhone, clientEmail, expiresAt].join(":"))
+    .update([bookingId, clientPhone, clientEmail, String(expiresAt)].join(":"))
     .digest("hex");
 }
 
 export function createBookingCheckoutTokenForBooking(bookingId: string, clientPhone: string, clientEmail: string) {
-  const expiresAt = new Date(Date.now() + BOOKING_CHECKOUT_TOKEN_TTL_MS).toISOString();
+  const expiresAt = Date.now() + BOOKING_CHECKOUT_TOKEN_TTL_MS;
   const signature = signBookingCheckoutToken(bookingId, clientPhone, clientEmail, expiresAt);
   return `${expiresAt}.${signature}`;
+}
+
+function parseBookingCheckoutTokenExpiry(expiresAt: string) {
+  if (/^\d+$/.test(expiresAt)) {
+    return Number(expiresAt);
+  }
+
+  return Date.parse(expiresAt);
 }
 
 export function verifyBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, token: string) {
@@ -35,7 +43,7 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
     return isValid;
   };
 
-  const separatorIndex = token.indexOf(".");
+  const separatorIndex = token.lastIndexOf(".");
   if (separatorIndex === -1) {
     return logValidationResult(false, "invalid_token_format", { separatorIndex });
   }
@@ -50,7 +58,7 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
     });
   }
 
-  const expiresAtTime = Date.parse(expiresAt);
+  const expiresAtTime = parseBookingCheckoutTokenExpiry(expiresAt);
   const currentTime = Date.now();
   if (!Number.isFinite(expiresAtTime) || expiresAtTime < currentTime) {
     return logValidationResult(false, "invalid_or_expired_token", {
