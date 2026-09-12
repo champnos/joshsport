@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createBookingConfirmationToken } from "@/lib/booking-confirmation";
 import { verifyBookingCheckoutToken } from "@/lib/booking-checkout-token";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
     const successUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking-success`);
     successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
     successUrl.searchParams.set("booking_id", booking.id);
-    successUrl.searchParams.set("token", checkoutToken);
+    successUrl.searchParams.set("confirmation_token", createBookingConfirmationToken(booking.id));
 
     const session = await stripe.checkout.sessions.create(
       {

@@ -32,32 +32,25 @@ function parseBookingCheckoutTokenExpiry(expiresAt: string) {
 }
 
 function parseBookingCheckoutToken(token: string) {
-  const dotSeparatorIndex = token.lastIndexOf(".");
-  if (dotSeparatorIndex !== -1) {
-    const providedSignature = token.slice(dotSeparatorIndex + 1);
-    if (/^[a-f0-9]{64}$/i.test(providedSignature)) {
-      return {
-        expiresAt: token.slice(0, dotSeparatorIndex),
-        providedSignature,
-        format: "dot",
-      } as const;
-    }
-  }
+  const signatureMatch = token.match(/[a-f0-9]{64}$/i);
+  if (!signatureMatch || signatureMatch.index === undefined) return null;
 
-  const colonSeparatorIndex = token.lastIndexOf(":");
-  if (colonSeparatorIndex !== -1) {
-    const providedSignature = token.slice(colonSeparatorIndex + 1);
-    if (!/^[a-f0-9]{64}$/i.test(providedSignature)) {
-      return null;
-    }
-    return {
-      expiresAt: token.slice(0, colonSeparatorIndex),
-      providedSignature,
-      format: "colon",
-    } as const;
-  }
+  const signatureStartIndex = signatureMatch.index;
+  if (signatureStartIndex < 1) return null;
 
-  return null;
+  const separatorIndex = signatureStartIndex - 1;
+  const separator = token[separatorIndex];
+  if (separator !== "." && separator !== ":") return null;
+
+  const expiresAt = token.slice(0, separatorIndex);
+  const providedSignature = token.slice(signatureStartIndex);
+  if (!expiresAt) return null;
+
+  return {
+    expiresAt,
+    providedSignature,
+    format: separator === "." ? "dot" : "colon",
+  } as const;
 }
 
 export function verifyBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, token: string) {

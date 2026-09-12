@@ -15,6 +15,7 @@ function BookingSuccessInner() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("booking_id") || "";
   const checkoutTokenFromUrl = searchParams.get("token") || "";
+  const confirmationToken = searchParams.get("confirmation_token") || "";
   const [checkoutToken, setCheckoutToken] = useState(checkoutTokenFromUrl);
   const [checkoutTokenLoaded, setCheckoutTokenLoaded] = useState(Boolean(checkoutTokenFromUrl));
   const [summary, setSummary] = useState<BookingConfirmationSummary | null>(null);
@@ -49,9 +50,31 @@ function BookingSuccessInner() {
   useEffect(() => {
     if (!bookingId || !checkoutTokenLoaded) return;
     let cancelled = false;
+    let transientRetryCount = 0;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    const maxTransientRetries = 3;
+
+    const queueRetry = () => {
+      if (cancelled || transientRetryCount >= maxTransientRetries) {
+        if (!cancelled) {
+          setConfirmationState("failed");
+          setConfirmationError("We couldn't confirm your booking automatically. Please contact support with your booking reference.");
+        }
+        return;
+      }
+
+      transientRetryCount += 1;
+      setConfirmationState("confirming");
+      setConfirmationError("Still waiting for payment confirmation. We’ll keep trying for a moment.");
+      retryTimeout = setTimeout(() => {
+        if (!cancelled) {
+          void loadSummary();
+        }
+      }, 3000);
+    };
 
     const loadSummary = async () => {
-      if (!checkoutToken) {
+      if (!checkoutToken && !confirmationToken) {
         if (!cancelled) {
           setConfirmationState("failed");
           setConfirmationError("We couldn't verify your booking automatically. Please contact support with your booking reference.");
@@ -65,17 +88,27 @@ function BookingSuccessInner() {
       }
 
       try {
+        const requestBody: { checkoutToken?: string; token?: string } = {};
+        if (checkoutToken) requestBody.checkoutToken = checkoutToken;
+        if (confirmationToken) requestBody.token = confirmationToken;
+
         const response = await fetch(`/api/bookings/confirmation/${bookingId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ checkoutToken }),
+          body: JSON.stringify(requestBody),
         });
+
         if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string };
+          await response.json().catch(() => ({}));
+          const permanentFailure = response.status === 403 || response.status === 404 || response.status === 409;
           if (!cancelled) {
             setSummary(null);
-            setConfirmationState("failed");
-            setConfirmationError(payload.error || "Unable to confirm your booking right now. Please try again shortly.");
+            if (permanentFailure) {
+              setConfirmationState("failed");
+              setConfirmationError("We couldn't confirm your booking automatically. Please contact support with your booking reference.");
+            } else {
+              queueRetry();
+            }
           }
           return;
         }
@@ -84,12 +117,12 @@ function BookingSuccessInner() {
         if (!cancelled) {
           setSummary(payload);
           setConfirmationState("confirmed");
+          setConfirmationError("");
         }
       } catch {
         if (!cancelled) {
           setSummary(null);
-          setConfirmationState("failed");
-          setConfirmationError("Unable to confirm your booking right now. Please try again shortly.");
+          queueRetry();
         }
       }
     };
@@ -97,8 +130,11 @@ function BookingSuccessInner() {
     void loadSummary();
     return () => {
       cancelled = true;
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
     };
-  }, [bookingId, checkoutToken, checkoutTokenLoaded]);
+  }, [bookingId, checkoutToken, checkoutTokenLoaded, confirmationToken]);
 
   const formatPrice = (value: number) => (value / 100).toFixed(2);
   const hasDiscountDetails = Boolean(
@@ -134,13 +170,16 @@ function BookingSuccessInner() {
             <>
               <div className="text-6xl mb-4">⚠️</div>
               <h2 className="text-2xl font-bold text-red-800 mb-2">We&apos;re still confirming your booking</h2>
-              <p className="text-red-700 mb-2">{confirmationError}</p>
+              <p className="text-red-700 mb-2" role="alert" aria-live="assertive">
+                {confirmationError}
+              </p>
             </>
           ) : (
             <>
               <div className="text-6xl mb-4">⏳</div>
               <h2 className="text-2xl font-bold text-green-800 mb-2">Finalising your booking</h2>
               <p className="text-green-700 mb-4">Your payment has been received. Please wait while we confirm your booking.</p>
+              {confirmationError && <p className="text-sm text-green-700">{confirmationError}</p>}
             </>
           )}
         </div>

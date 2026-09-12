@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { verifyBookingCheckoutToken } from "@/lib/booking-checkout-token";
+import { isValidBookingConfirmationToken } from "@/lib/booking-confirmation";
 import { sendBookingEmails } from "@/lib/booking-emails";
 import type { Booking } from "@/lib/types";
 
@@ -117,35 +118,67 @@ async function confirmBookingWithCheckoutToken(bookingId: string, checkoutToken:
   return NextResponse.json({ success: true, ...toBookingResponse(confirmedBooking) });
 }
 
-async function getCheckoutTokenFromBody(request: NextRequest) {
+async function confirmBookingWithLegacyConfirmationToken(bookingId: string, confirmationToken: string) {
+  const booking = await loadBooking(bookingId);
+  if (!booking) {
+    return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  }
+
+  if (!isValidBookingConfirmationToken(confirmationToken, bookingId)) {
+    return NextResponse.json({ error: "Invalid confirmation token" }, { status: 403 });
+  }
+
+  const confirmedBooking = await confirmBookingIfNeeded(booking);
+  if (!confirmedBooking) {
+    return NextResponse.json({ error: "Booking is not awaiting payment" }, { status: 409 });
+  }
+
+  return NextResponse.json({ success: true, ...toBookingResponse(confirmedBooking) });
+}
+
+async function getConfirmationTokensFromBody(request: NextRequest) {
   const contentType = request.headers.get("content-type") || "";
 
   try {
     if (contentType.includes("application/json")) {
       const body = await request.json();
-      if (typeof body?.checkoutToken === "string") return body.checkoutToken.trim();
-      if (typeof body?.token === "string") return body.token.trim();
-      return "";
+      return {
+        checkoutToken: typeof body?.checkoutToken === "string" ? body.checkoutToken.trim() : "",
+        legacyConfirmationToken: typeof body?.token === "string" ? body.token.trim() : "",
+      };
     }
 
     const formData = await request.formData();
     const checkoutToken = formData.get("checkoutToken");
-    if (typeof checkoutToken === "string") return checkoutToken.trim();
     const token = formData.get("token");
-    return typeof token === "string" ? token.trim() : "";
+    return {
+      checkoutToken: typeof checkoutToken === "string" ? checkoutToken.trim() : "",
+      legacyConfirmationToken: typeof token === "string" ? token.trim() : "",
+    };
   } catch {
-    return "";
+    return {
+      checkoutToken: "",
+      legacyConfirmationToken: "",
+    };
   }
 }
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
-    const checkoutToken = await getCheckoutTokenFromBody(request);
-    if (!checkoutToken) {
-      return NextResponse.json({ error: "Invalid checkout token" }, { status: 403 });
+    const { checkoutToken, legacyConfirmationToken } = await getConfirmationTokensFromBody(request);
+
+    if (checkoutToken) {
+      const checkoutConfirmationResponse = await confirmBookingWithCheckoutToken(params.bookingId, checkoutToken);
+      if (checkoutConfirmationResponse.ok || !legacyConfirmationToken || checkoutConfirmationResponse.status !== 403) {
+        return checkoutConfirmationResponse;
+      }
     }
 
-    return await confirmBookingWithCheckoutToken(params.bookingId, checkoutToken);
+    if (legacyConfirmationToken) {
+      return await confirmBookingWithLegacyConfirmationToken(params.bookingId, legacyConfirmationToken);
+    }
+
+    return NextResponse.json({ error: "Invalid confirmation token" }, { status: 403 });
   } catch (error) {
     console.error("Failed to confirm booking:", error);
     return NextResponse.json({ error: "Unable to confirm booking." }, { status: 500 });
