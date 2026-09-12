@@ -19,6 +19,24 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const preparedBooking = await validateAndPrepareBooking(body);
+    const pendingCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const pendingBookingQuery = supabaseAdmin
+      .from("bookings")
+      .select("id")
+      .eq("status", "pending_payment")
+      .gte("created_at", pendingCutoff)
+      .eq("client_phone", preparedBooking.normalizedBooking.client_phone)
+      .limit(1);
+
+    const { data: existingPendingBooking, error: existingPendingBookingError } = await pendingBookingQuery.maybeSingle();
+    if (existingPendingBookingError) throw existingPendingBookingError;
+    if (existingPendingBooking) {
+      return NextResponse.json(
+        { error: "You already have a booking awaiting payment. Please complete that payment before starting another booking." },
+        { status: 409 },
+      );
+    }
+
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
       status: "pending_payment",

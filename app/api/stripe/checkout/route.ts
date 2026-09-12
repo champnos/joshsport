@@ -20,6 +20,7 @@ function getDurationPrice(durations: unknown, durationMins: number) {
 
 export async function POST(req: NextRequest) {
   let bookingIdForCleanup = "";
+  let checkoutSessionCreated = false;
   try {
     const body = await req.json();
     const bookingId = typeof body.bookingId === "string" ? body.bookingId.trim() : "";
@@ -97,10 +98,11 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+    checkoutSessionCreated = true;
 
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error) {
-    if (bookingIdForCleanup) {
+    if (bookingIdForCleanup && !checkoutSessionCreated) {
       const { error: cleanupError } = await supabaseAdmin
         .from("bookings")
         .update({ status: "cancelled" })
