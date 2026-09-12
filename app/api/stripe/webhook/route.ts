@@ -88,19 +88,21 @@ export async function POST(req: NextRequest) {
         ? charge.payment_intent
         : charge.payment_intent?.id;
 
-    const { error } = await supabaseAdmin
+    const { data: updatedBooking, error } = await supabaseAdmin
       .from("bookings")
       .update({
         status: "confirmed",
         payment_intent_id: paymentIntentId ?? booking.payment_intent_id ?? null,
       })
-      .eq("id", booking.id);
+      .eq("id", booking.id)
+      .select("*")
+      .single();
     if (error) {
       console.error("Failed to confirm booking from webhook:", error);
       return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
     }
 
-    await sendBookingEmails(booking);
+    await sendBookingEmails(updatedBooking);
 
     console.log("Booking confirmed from charge.succeeded", { bookingId: booking.id, payment_intent: charge.payment_intent });
     return NextResponse.json({ received: true });

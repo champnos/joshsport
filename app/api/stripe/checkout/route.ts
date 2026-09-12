@@ -19,6 +19,7 @@ function getDurationPrice(durations: unknown, durationMins: number) {
 }
 
 export async function POST(req: NextRequest) {
+  let bookingIdForCleanup = "";
   try {
     const body = await req.json();
     const bookingId = typeof body.bookingId === "string" ? body.bookingId.trim() : "";
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
     if (!bookingId) {
       return NextResponse.json({ error: "Missing booking ID" }, { status: 400 });
     }
+
+    bookingIdForCleanup = bookingId;
 
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
@@ -97,6 +100,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error) {
+    if (bookingIdForCleanup) {
+      const { error: cleanupError } = await supabaseAdmin
+        .from("bookings")
+        .update({ status: "cancelled" })
+        .eq("id", bookingIdForCleanup)
+        .eq("status", "pending_payment");
+      if (cleanupError) {
+        console.error("Failed to release pending booking after checkout error:", cleanupError);
+      }
+    }
+
     console.error("Stripe checkout error:", error);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
