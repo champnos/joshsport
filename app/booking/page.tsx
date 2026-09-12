@@ -387,7 +387,7 @@ function BookingInner() {
       const checkoutRes = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId: bookingData.id }),
+        body: JSON.stringify({ bookingId: bookingData.id, checkoutToken: bookingData.checkoutToken }),
       });
 
       const checkoutData = await checkoutRes.json();

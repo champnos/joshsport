@@ -56,7 +56,7 @@ function normalizeBooking(body: Record<string, unknown>): NormalizedBooking {
     client_phone: typeof body.client_phone === "string" ? body.client_phone.trim() : "",
     client_address: typeof body.client_address === "string" ? body.client_address.trim() : "",
     client_postcode: typeof body.client_postcode === "string" ? body.client_postcode.trim() : "",
-    client_email: typeof body.client_email === "string" ? body.client_email.trim() : "",
+    client_email: typeof body.client_email === "string" ? body.client_email.trim().toLowerCase() : "",
     emergency_name: typeof body.emergency_name === "string" ? body.emergency_name.trim() : "",
     emergency_relationship: typeof body.emergency_relationship === "string" ? body.emergency_relationship.trim() : "",
     emergency_phone: typeof body.emergency_phone === "string" ? body.emergency_phone.trim() : "",

@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { verifyBookingCheckoutToken } from "@/lib/booking-checkout-token";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2023-10-16",
@@ -22,9 +23,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const bookingId = typeof body.bookingId === "string" ? body.bookingId.trim() : "";
+    const checkoutToken = typeof body.checkoutToken === "string" ? body.checkoutToken.trim() : "";
 
     if (!bookingId) {
       return NextResponse.json({ error: "Missing booking ID" }, { status: 400 });
+    }
+    if (!checkoutToken || !verifyBookingCheckoutToken(bookingId, checkoutToken)) {
+      return NextResponse.json({ error: "Invalid checkout token" }, { status: 403 });
     }
 
     const { data: booking, error: bookingError } = await supabaseAdmin

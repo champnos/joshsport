@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { BookingValidationError, validateAndPrepareBooking } from "@/lib/booking-flow";
+import { createBookingCheckoutToken } from "@/lib/booking-checkout-token";
 
 function normalizePhone(phoneValue: unknown) {
   const rawPhone = typeof phoneValue === "string" ? phoneValue.trim() : "";
   const hasLeadingPlus = rawPhone.startsWith("+");
   return `${hasLeadingPlus ? "+" : ""}${rawPhone.replace(/\D/g, "")}`;
+}
+
+function normalizeEmail(emailValue: unknown) {
+  return typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
 }
 
 function matchesRequestedBooking(
@@ -51,7 +56,7 @@ export async function POST(request: Request) {
     const requestedDate = typeof body?.date === "string" ? body.date.trim() : "";
     const requestedStartTime = typeof body?.start_time === "string" ? body.start_time.trim() : "";
     const requestedDuration = Number(body?.duration_mins);
-    const requestedClientEmail = typeof body?.client_email === "string" ? body.client_email.trim() : "";
+    const requestedClientEmail = normalizeEmail(body?.client_email);
     const requestedClientPhone = normalizePhone(body?.client_phone);
     const requestedBooking = {
       treatmentId: requestedTreatmentId,
@@ -79,7 +84,14 @@ export async function POST(request: Request) {
       const exactPendingBooking = existingPendingBookings.find((booking) => matchesRequestedBooking(booking, requestedBooking));
 
       if (exactPendingBooking) {
-        return NextResponse.json({ id: exactPendingBooking.id, status: exactPendingBooking.status }, { status: 200 });
+        return NextResponse.json(
+          {
+            id: exactPendingBooking.id,
+            status: exactPendingBooking.status,
+            checkoutToken: createBookingCheckoutToken(exactPendingBooking.id),
+          },
+          { status: 200 },
+        );
       }
 
       return NextResponse.json(
@@ -113,19 +125,28 @@ export async function POST(request: Request) {
             "client_email",
             preparedBooking.normalizedBooking.client_email,
           );
+        } else {
+          existingPendingBookingQuery = existingPendingBookingQuery.eq("client_email", "");
         }
 
         const { data: duplicateBooking, error: duplicateBookingError } = await existingPendingBookingQuery.maybeSingle();
         if (duplicateBookingError) throw duplicateBookingError;
         if (duplicateBooking) {
-          return NextResponse.json({ id: duplicateBooking.id, status: duplicateBooking.status }, { status: 200 });
+          return NextResponse.json(
+            {
+              id: duplicateBooking.id,
+              status: duplicateBooking.status,
+              checkoutToken: createBookingCheckoutToken(duplicateBooking.id),
+            },
+            { status: 200 },
+          );
         }
       }
 
       throw error;
     }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json({ ...data, checkoutToken: createBookingCheckoutToken(data.id) }, { status: 201 });
   } catch (err) {
     if (err instanceof BookingValidationError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
