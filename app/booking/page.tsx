@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, Suspense, type FormEvent } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { getAgeValidation, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
 import { TERMS_ACCEPTANCE_LABEL, TERMS_AND_CONDITIONS } from "@/lib/terms-and-conditions";
 
@@ -71,61 +69,6 @@ function formatPriceFromPence(value: number) {
 }
 
 const STEPS = ["Treatment", "Date & Time", "Your Details", "Emergency Contact", "Medical History", "Injury History", "Confirm & Pay"];
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
-
-interface BookingPaymentElementFormProps {
-  disabled: boolean;
-  onError: (message: string) => void;
-  onPaymentConfirmed: (paymentIntentId: string) => Promise<void>;
-}
-
-function BookingPaymentElementForm({ disabled, onError, onPaymentConfirmed }: BookingPaymentElementFormProps) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [processingPayment, setProcessingPayment] = useState(false);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!stripe || !elements || processingPayment || disabled) return;
-
-    setProcessingPayment(true);
-    onError("");
-
-    try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        redirect: "if_required",
-      });
-
-      if (error) {
-        onError(error.message || "Payment failed. Please try again.");
-        return;
-      }
-
-      if (!paymentIntent || paymentIntent.status !== "succeeded") {
-        onError("Payment was not completed.");
-        return;
-      }
-
-      await onPaymentConfirmed(paymentIntent.id);
-    } finally {
-      setProcessingPayment(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
-      <button
-        type="submit"
-        disabled={!stripe || !elements || processingPayment || disabled}
-        className="w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
-      >
-        {processingPayment || disabled ? "Processing Payment…" : "Pay now & Confirm Booking"}
-      </button>
-    </form>
-  );
-}
 
 function BookingInner() {
   const searchParams = useSearchParams();
@@ -169,8 +112,6 @@ function BookingInner() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [paymentClientSecret, setPaymentClientSecret] = useState("");
-  const [paymentAttemptId, setPaymentAttemptId] = useState("");
   const [voucherCodeInput, setVoucherCodeInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discountPercentage: number } | null>(null);
   const [validatingVoucher, setValidatingVoucher] = useState(false);
@@ -182,6 +123,12 @@ function BookingInner() {
   const termsDialogRef = useRef<HTMLDivElement | null>(null);
 
   // Load treatments, settings, and working dates on mount
+  useEffect(() => {
+    if (searchParams.get("cancelled") === "true") {
+      setError("Payment was cancelled before it completed. Please try again when you are ready.");
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -453,8 +400,6 @@ function BookingInner() {
       });
       setVoucherCodeInput(payload.code);
       setVoucherMessage(`Voucher applied: ${payload.code} (${payload.discount_percentage}% off)`);
-      setPaymentClientSecret("");
-      setPaymentAttemptId("");
     } catch {
       setAppliedVoucher(null);
       setVoucherMessage("Unable to validate voucher right now.");
@@ -468,8 +413,6 @@ function BookingInner() {
     setVoucherCodeInput("");
     setVoucherMessage("");
     setError("");
-    setPaymentClientSecret("");
-    setPaymentAttemptId("");
   };
 
   const handlePayment = async () => {
@@ -493,90 +436,36 @@ function BookingInner() {
     setSubmitting(true);
     setError("");
     try {
-      const attemptId = paymentAttemptId || crypto.randomUUID();
-      if (!paymentAttemptId) setPaymentAttemptId(attemptId);
-      const bookingPayload = {
-        ...buildBookingPayload(),
-        payment_attempt_id: attemptId,
-      };
-
-      const paymentIntentRes = await fetch("/api/bookings/payment-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bookingPayload),
-      });
-
-      const paymentIntentData = await paymentIntentRes.json();
-      if (!paymentIntentRes.ok) {
-        setError(paymentIntentData.error ?? "Unable to start payment. Please try again.");
-        setSubmitting(false);
-        return;
-      }
-
-      if (!paymentIntentData.clientSecret) {
-        if (paymentIntentData.paymentIntentStatus === "succeeded" && paymentIntentData.paymentIntentId) {
-          setSubmitting(false);
-          await handlePaymentConfirmed(paymentIntentData.paymentIntentId, attemptId);
-          return;
-        }
-
-        setError("Unable to start payment. Please try again.");
-        setPaymentAttemptId("");
-        setSubmitting(false);
-        return;
-      }
-
-      setPaymentClientSecret(paymentIntentData.clientSecret);
-      setSubmitting(false);
-    } catch (err) {
-      console.error("Payment error:", err);
-      setError("Unable to process payment. Please try again.");
-      setSubmitting(false);
-    }
-  };
-
-  const handlePaymentConfirmed = async (paymentIntentId: string, paymentAttemptIdOverride?: string) => {
-    const activePaymentAttemptId = paymentAttemptIdOverride ?? paymentAttemptId;
-    setSubmitting(true);
-    setError("");
-
-    try {
       const bookingRes = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...buildBookingPayload(),
-          paymentIntentId,
-          payment_attempt_id: activePaymentAttemptId,
-        }),
+        body: JSON.stringify(buildBookingPayload()),
       });
 
       const bookingData = await bookingRes.json();
       if (!bookingRes.ok) {
-        if (bookingRes.status === 409) {
-          setError(
-            "Your payment succeeded, but that slot has just been taken. Please contact us so we can rebook you or arrange a refund.",
-          );
-          setPaymentClientSecret("");
-          setPaymentAttemptId("");
-        } else {
-          setError(bookingData.error ?? "Unable to confirm booking after payment.");
-        }
+        setError(bookingData.error ?? "Unable to start payment. Please try again.");
         setSubmitting(false);
         return;
       }
 
-      const successParams = new URLSearchParams();
-      if (bookingData?.id) {
-        successParams.set("booking_id", bookingData.id);
+      const checkoutRes = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: bookingData.id, checkoutToken: bookingData.checkoutToken }),
+      });
+
+      const checkoutData = await checkoutRes.json();
+      if (!checkoutRes.ok || !checkoutData.url) {
+        setError(checkoutData.error ?? "Unable to start payment. Please try again.");
+        setSubmitting(false);
+        return;
       }
-      if (bookingData?.confirmation_token) {
-        successParams.set("confirmation_token", bookingData.confirmation_token);
-      }
-      window.location.assign(`/booking-success${successParams.toString() ? `?${successParams.toString()}` : ""}`);
+
+      window.location.assign(checkoutData.url);
     } catch (err) {
-      console.error("Booking confirmation error:", err);
-      setError("Payment succeeded but booking confirmation failed. Please contact support.");
+      console.error("Payment error:", err);
+      setError("Unable to process payment. Please try again.");
       setSubmitting(false);
     }
   };
@@ -1101,21 +990,18 @@ function BookingInner() {
                       if (appliedVoucher && event.target.value.toUpperCase() !== appliedVoucher.code) {
                         setAppliedVoucher(null);
                         setError("");
-                        setPaymentClientSecret("");
-                        setPaymentAttemptId("");
                       }
                       setVoucherMessage("");
                     }}
                     placeholder="SUMMER20"
-                    disabled={Boolean(paymentClientSecret)}
                     aria-describedby={voucherMessage ? "voucher-code-message" : undefined}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500 disabled:opacity-60"
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                   />
                   {!appliedVoucher ? (
                     <button
                       type="button"
                       onClick={applyVoucherCode}
-                      disabled={validatingVoucher || Boolean(paymentClientSecret)}
+                      disabled={validatingVoucher}
                       className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                     >
                       {validatingVoucher ? "Checking..." : "Apply"}
@@ -1124,8 +1010,7 @@ function BookingInner() {
                     <button
                       type="button"
                       onClick={removeVoucherCode}
-                      disabled={Boolean(paymentClientSecret)}
-                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                     >
                       Remove
                     </button>
@@ -1172,7 +1057,6 @@ function BookingInner() {
                 <button
                   type="button"
                   onClick={openTermsModal}
-                  disabled={Boolean(paymentClientSecret)}
                   className="shrink-0 rounded-lg border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5"
                 >
                   Read terms
@@ -1184,7 +1068,6 @@ function BookingInner() {
                   type="checkbox"
                   checked={termsAccepted}
                   onChange={handleTermsCheckboxChange}
-                  disabled={Boolean(paymentClientSecret)}
                   className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-brand-gold"
                 />
                 <span className="text-sm text-gray-700">{TERMS_ACCEPTANCE_LABEL}</span>
@@ -1195,42 +1078,33 @@ function BookingInner() {
               </p>
             </div>
 
-            {!paymentClientSecret ? (
-              <button
-                onClick={handlePayment}
-                disabled={
-                  submitting ||
-                  !clientName ||
-                  !clientEmail ||
-                  !clientDob ||
-                  !clientPhone ||
-                  !clientAddress ||
-                  !clientPostcode ||
-                  !termsAccepted ||
-                  !ageValidation.isAdult ||
-                  checkingDistance ||
-                  !distanceCheck?.withinRange
-                }
-                className="mt-6 w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {submitting ? "Preparing Payment…" : `Continue to Secure Payment (£${formatPriceFromPence(finalPricePence)})`}
-              </button>
-            ) : (
-              <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4">
-                <Elements stripe={stripePromise} options={{ clientSecret: paymentClientSecret }}>
-                  <BookingPaymentElementForm
-                    disabled={submitting}
-                    onError={setError}
-                    onPaymentConfirmed={handlePaymentConfirmed}
-                  />
-                </Elements>
-              </div>
-            )}
+            <button
+              onClick={handlePayment}
+              disabled={
+                submitting ||
+                !clientName ||
+                !clientEmail ||
+                !clientDob ||
+                !clientPhone ||
+                !clientAddress ||
+                !clientPostcode ||
+                !termsAccepted ||
+                !ageValidation.isAdult ||
+                checkingDistance ||
+                !distanceCheck?.withinRange
+              }
+              className="mt-6 w-full bg-brand-gold text-brand-blue font-extrabold text-lg py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {submitting ? "Redirecting to Secure Payment…" : `Continue to Secure Payment (£${formatPriceFromPence(finalPricePence)})`}
+            </button>
+            <p className="mt-3 text-center text-sm text-gray-500">
+              You&apos;ll be redirected to Stripe&apos;s secure hosted payment page to complete your booking.
+            </p>
 
             <div className="mt-6 flex justify-start">
               <button
                 onClick={() => setStep(6)}
-                disabled={Boolean(paymentClientSecret)}
+                disabled={submitting}
                 className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="h-4 w-4" /> Back

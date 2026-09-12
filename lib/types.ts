@@ -40,7 +40,7 @@ export interface Booking {
   base_amount_pence?: number | null;
   discount_amount_pence?: number | null;
   final_amount_pence?: number | null;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "pending_payment" | "confirmed" | "completed" | "cancelled";
   created_at?: string;
 }
 

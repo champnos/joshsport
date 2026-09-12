@@ -37,7 +37,7 @@ create table if not exists bookings (
   discount_amount_pence integer,
   final_amount_pence integer,
   payment_intent_id text unique,
-  status text default 'pending',
+  status text default 'pending_payment',
   created_at timestamptz default now()
 );
 
@@ -79,6 +79,17 @@ as $$
   set uses_count = greatest(uses_count - 1, 0)
   where code = voucher_code_input;
 $$;
+
+create unique index if not exists bookings_pending_payment_hold_unique_idx
+on bookings (
+  regexp_replace(coalesce(client_phone, ''), '\D', '', 'g'),
+  lower(btrim(coalesce(client_email, ''))),
+  treatment_id,
+  duration_mins,
+  date,
+  start_time
+)
+where status = 'pending_payment';
 
 create table if not exists working_dates (
   date text primary key,

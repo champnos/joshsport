@@ -13,7 +13,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     const updates: Record<string, string> = {};
 
     if (body.status !== undefined) {
-      if (!["pending", "confirmed", "completed", "cancelled"].includes(body.status)) {
+      if (!["pending_payment", "confirmed", "completed", "cancelled"].includes(body.status)) {
         return NextResponse.json({ error: "Invalid status." }, { status: 400 });
       }
       updates.status = body.status;

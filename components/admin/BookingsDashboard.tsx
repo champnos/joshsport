@@ -10,7 +10,7 @@ interface BookingsDashboardProps {
   onUnauthorized: () => void;
 }
 
-const STATUS_OPTIONS = ["all", "pending", "confirmed", "completed", "cancelled"] as const;
+const STATUS_OPTIONS = ["all", "pending_payment", "pending", "confirmed", "completed", "cancelled"] as const;
 
 function formatTime(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
@@ -39,6 +39,10 @@ function bookingDateTime(booking: Booking) {
   return new Date(`${booking.date}T${booking.start_time}:00`).getTime();
 }
 
+function isPendingStatus(status: Booking["status"]) {
+  return status === "pending" || status === "pending_payment";
+}
+
 function statusClasses(status: Booking["status"]) {
   if (status === "completed") return "bg-blue-100 text-blue-800";
   if (status === "confirmed") return "bg-green-100 text-green-800";
@@ -47,7 +51,7 @@ function statusClasses(status: Booking["status"]) {
 }
 
 function statusPriority(status: Booking["status"]) {
-  if (status === "pending") return 0;
+  if (isPendingStatus(status)) return 0;
   if (status === "confirmed") return 1;
   if (status === "completed") return 2;
   return 3;
@@ -169,7 +173,12 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
     const term = searchTerm.trim().toLowerCase();
 
     return sortedBookings.filter((booking) => {
-      if (statusFilter !== "all" && booking.status !== statusFilter) return false;
+      if (
+        statusFilter !== "all" &&
+        !(statusFilter === "pending" ? isPendingStatus(booking.status) : booking.status === statusFilter)
+      ) {
+        return false;
+      }
       if (dateFilter && booking.date !== dateFilter) return false;
       if (!term) return true;
 
@@ -201,14 +210,14 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
 
     return {
       total: monthBookings.length,
-      pending: monthBookings.filter((booking) => booking.status === "pending").length,
+      pending: monthBookings.filter((booking) => isPendingStatus(booking.status)).length,
       completed: monthBookings.filter((booking) => booking.status === "completed").length,
       cancelled: monthBookings.filter((booking) => booking.status === "cancelled").length,
     };
   }, [bookings]);
 
   const pendingBookings = useMemo(
-    () => sortedBookings.filter((booking) => booking.status === "pending"),
+    () => sortedBookings.filter((booking) => isPendingStatus(booking.status)),
     [sortedBookings],
   );
 
@@ -377,7 +386,7 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
               <div className="grid grid-cols-7 gap-2">
                 {monthCells.map((cell, index) => {
                   const dayBookings = cell.date ? bookingsByDate.get(cell.date) ?? [] : [];
-                  const hasPending = dayBookings.some((booking) => booking.status === "pending");
+                  const hasPending = dayBookings.some((booking) => isPendingStatus(booking.status));
                   const isSelected = cell.date !== null && cell.date === dateFilter;
 
                   return (
@@ -409,7 +418,7 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
                                 key={booking.id}
                                 className={cn(
                                   "rounded-lg px-2 py-1 text-[11px] font-medium",
-                                  booking.status === "pending" ? "bg-brand-gold/20 text-brand-blue" : "bg-gray-100 text-gray-700",
+                                  isPendingStatus(booking.status) ? "bg-brand-gold/20 text-brand-blue" : "bg-gray-100 text-gray-700",
                                 )}
                               >
                                 {formatTime(booking.start_time)} · {booking.client_name}
@@ -436,7 +445,7 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
               <p className="text-sm text-gray-500">Bookings that likely need action first.</p>
             </div>
             <span className="rounded-full bg-brand-gold px-3 py-1 text-xs font-bold text-brand-blue">
-              {pendingBookings.length} pending
+              {pendingBookings.length} awaiting payment
             </span>
           </div>
 
@@ -457,7 +466,7 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
               </button>
             ))}
             {pendingBookings.length === 0 && (
-              <p className="rounded-2xl bg-gray-50 px-4 py-6 text-sm text-gray-500">No pending bookings right now.</p>
+              <p className="rounded-2xl bg-gray-50 px-4 py-6 text-sm text-gray-500">No bookings are awaiting payment right now.</p>
             )}
           </div>
         </section>
@@ -489,7 +498,12 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
             >
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status === "all" ? "All statuses" : status[0].toUpperCase() + status.slice(1)}
+                  {status === "all"
+                    ? "All statuses"
+                    : status
+                        .split("_")
+                        .map((part) => part[0].toUpperCase() + part.slice(1))
+                        .join(" ")}
                 </option>
               ))}
             </select>
@@ -522,7 +536,7 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
               key={booking.id}
               className={cn(
                 "rounded-3xl border p-5 shadow-sm transition",
-                booking.status === "pending" ? "border-brand-gold/50 bg-brand-gold/5" : "border-gray-200 bg-white",
+                isPendingStatus(booking.status) ? "border-brand-gold/50 bg-brand-gold/5" : "border-gray-200 bg-white",
               )}
             >
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -530,9 +544,9 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
                   <div className="flex flex-wrap items-center gap-3">
                     <h4 className="text-lg font-bold text-brand-blue">{booking.client_name}</h4>
                     <span className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize", statusClasses(booking.status))}>
-                      {booking.status}
+                      {booking.status.replace("_", " ")}
                     </span>
-                    {booking.status === "pending" && (
+                    {isPendingStatus(booking.status) && (
                       <span className="rounded-full bg-brand-gold px-3 py-1 text-xs font-bold text-brand-blue">Needs attention</span>
                     )}
                   </div>
