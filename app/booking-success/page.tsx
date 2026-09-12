@@ -87,7 +87,7 @@ function BookingSuccessInner() {
           </ul>
         </div>
 
-        {hasDiscountDetails && (
+        {hasDiscountDetails && summary && (
           <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8">
             <h3 className="text-lg font-bold text-brand-blue mb-4">Voucher Applied</h3>
             <div className="space-y-2 text-sm text-gray-700">
