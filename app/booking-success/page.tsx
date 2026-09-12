@@ -14,12 +14,39 @@ interface BookingConfirmationSummary {
 function BookingSuccessInner() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("booking_id") || "";
-  const checkoutToken = searchParams.get("token") || "";
+  const checkoutTokenFromUrl = searchParams.get("token") || "";
   const confirmationToken = searchParams.get("confirmation_token") || "";
+  const [checkoutToken, setCheckoutToken] = useState(checkoutTokenFromUrl);
+  const [checkoutTokenLoaded, setCheckoutTokenLoaded] = useState(Boolean(checkoutTokenFromUrl));
   const [summary, setSummary] = useState<BookingConfirmationSummary | null>(null);
 
   useEffect(() => {
-    if (!bookingId || (!checkoutToken && !confirmationToken)) return;
+    if (!bookingId) {
+      setCheckoutTokenLoaded(true);
+      return;
+    }
+
+    if (checkoutTokenFromUrl) {
+      setCheckoutTokenLoaded(true);
+      return;
+    }
+
+    try {
+      const storageKey = `bookingCheckoutToken:${bookingId}`;
+      const storedCheckoutToken = window.sessionStorage.getItem(storageKey) || "";
+      if (storedCheckoutToken) {
+        setCheckoutToken(storedCheckoutToken);
+        window.sessionStorage.removeItem(storageKey);
+      }
+    } catch {
+      setCheckoutToken("");
+    } finally {
+      setCheckoutTokenLoaded(true);
+    }
+  }, [bookingId, checkoutTokenFromUrl]);
+
+  useEffect(() => {
+    if (!bookingId || !checkoutTokenLoaded || (!checkoutToken && !confirmationToken)) return;
     let cancelled = false;
 
     const loadSummary = async () => {
@@ -43,7 +70,7 @@ function BookingSuccessInner() {
     return () => {
       cancelled = true;
     };
-  }, [bookingId, checkoutToken, confirmationToken]);
+  }, [bookingId, checkoutToken, checkoutTokenLoaded, confirmationToken]);
 
   const formatPrice = (value: number) => (value / 100).toFixed(2);
   const hasDiscountDetails = Boolean(

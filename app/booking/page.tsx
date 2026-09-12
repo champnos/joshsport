@@ -462,6 +462,12 @@ function BookingInner() {
         return;
       }
 
+      try {
+        window.sessionStorage.setItem(`bookingCheckoutToken:${bookingData.id}`, bookingData.checkoutToken);
+      } catch (storageError) {
+        console.warn("Unable to store checkout token for booking confirmation:", storageError);
+      }
+
       window.location.assign(checkoutData.url);
     } catch (err) {
       console.error("Payment error:", err);
