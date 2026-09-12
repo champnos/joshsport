@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 import { getAgeValidation } from "@/lib/booking-rules";
@@ -11,7 +12,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 export async function GET(request: NextRequest) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
-    const { data, error } = await supabase.from("bookings").select("*").order("date").order("start_time");
+    const { data, error } = await supabaseAdmin.from("bookings").select("*").order("date").order("start_time");
     if (error) throw error;
     return NextResponse.json(data ?? []);
   } catch (err) {
@@ -172,7 +173,7 @@ export async function POST(request: Request) {
       status: "pending",
     };
 
-    const { data, error } = await supabase.from("bookings").insert([insertPayload]).select().single();
+    const { data, error } = await supabaseAdmin.from("bookings").insert([insertPayload]).select().single();
     if (error) {
       console.error("Supabase insert error:", error);
       throw error;
