@@ -8,13 +8,31 @@ function getCheckoutTokenSecret() {
   return secret;
 }
 
-export function createBookingCheckoutToken(bookingId: string) {
-  return createHmac("sha256", getCheckoutTokenSecret()).update(bookingId).digest("hex");
+function signBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, expiresAt: string) {
+  return createHmac("sha256", getCheckoutTokenSecret())
+    .update([bookingId, clientPhone, clientEmail, expiresAt].join(":"))
+    .digest("hex");
 }
 
-export function verifyBookingCheckoutToken(bookingId: string, token: string) {
-  const expectedToken = createBookingCheckoutToken(bookingId);
-  const providedBuffer = Buffer.from(token);
+export function createBookingCheckoutTokenForBooking(bookingId: string, clientPhone: string, clientEmail: string) {
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const signature = signBookingCheckoutToken(bookingId, clientPhone, clientEmail, expiresAt);
+  return `${expiresAt}.${signature}`;
+}
+
+export function verifyBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, token: string) {
+  const separatorIndex = token.indexOf(".");
+  if (separatorIndex === -1) return false;
+
+  const expiresAt = token.slice(0, separatorIndex);
+  const providedSignature = token.slice(separatorIndex + 1);
+  if (!expiresAt || !providedSignature) return false;
+
+  const expiresAtTime = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresAtTime) || expiresAtTime < Date.now()) return false;
+
+  const expectedToken = signBookingCheckoutToken(bookingId, clientPhone, clientEmail, expiresAt);
+  const providedBuffer = Buffer.from(providedSignature);
   const expectedBuffer = Buffer.from(expectedToken);
 
   if (providedBuffer.length !== expectedBuffer.length) return false;

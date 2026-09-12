@@ -19,6 +19,10 @@ function getDurationPrice(durations: unknown, durationMins: number) {
   return Number.isFinite(price) && price > 0 ? price : null;
 }
 
+function normalizeEmail(emailValue: string | null) {
+  return typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -28,18 +32,21 @@ export async function POST(req: NextRequest) {
     if (!bookingId) {
       return NextResponse.json({ error: "Missing booking ID" }, { status: 400 });
     }
-    if (!checkoutToken || !verifyBookingCheckoutToken(bookingId, checkoutToken)) {
+    if (!checkoutToken) {
       return NextResponse.json({ error: "Invalid checkout token" }, { status: 403 });
     }
 
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
-      .select("id, treatment_id, treatment_name, duration_mins, date, start_time, client_email, status")
+      .select("id, treatment_id, treatment_name, duration_mins, date, start_time, client_email, client_phone, status")
       .eq("id", bookingId)
       .single();
 
     if (bookingError || !booking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+    if (!verifyBookingCheckoutToken(bookingId, booking.client_phone || "", normalizeEmail(booking.client_email), checkoutToken)) {
+      return NextResponse.json({ error: "Invalid checkout token" }, { status: 403 });
     }
 
     if (booking.status !== "pending_payment") {
