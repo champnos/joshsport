@@ -35,6 +35,6 @@ export interface Booking {
   injury_recent_notes: string;
   injury_previous: boolean;
   injury_previous_notes: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "pending_payment" | "confirmed" | "completed" | "cancelled";
   created_at?: string;
 }
