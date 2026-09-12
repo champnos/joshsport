@@ -190,15 +190,15 @@ function BookingInner() {
     const requestId = distanceCheckRequestRef.current + 1;
     distanceCheckRequestRef.current = requestId;
 
-    setDistanceCheck(null);
-    setDistanceMessage("");
-
     if (!normalizedPostcode) {
+      setDistanceCheck(null);
+      setDistanceMessage("");
       setCheckingDistance(false);
       return;
     }
 
     if (!isValidUkPostcode(normalizedPostcode)) {
+      setDistanceCheck(null);
       setCheckingDistance(false);
       setDistanceMessage("Please enter a valid UK postcode.");
       return;
@@ -218,6 +218,7 @@ function BookingInner() {
         if (cancelled || requestId !== distanceCheckRequestRef.current) return;
 
         if (!response.ok) {
+          setDistanceCheck(null);
           setDistanceMessage(payload.error ?? "Unable to check your postcode right now.");
           return;
         }
@@ -233,6 +234,7 @@ function BookingInner() {
         );
       } catch (err) {
         if ((err as Error).name !== "AbortError" && !cancelled && requestId === distanceCheckRequestRef.current) {
+          setDistanceCheck(null);
           setDistanceMessage("Unable to check your postcode right now.");
         }
       } finally {
@@ -987,7 +989,10 @@ function BookingInner() {
       </div>
 
       {showTermsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue/70 px-4 py-8">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue/70 px-4 py-8"
+          onClick={closeTermsModal}
+        >
           <div
             ref={termsDialogRef}
             role="dialog"
@@ -995,6 +1000,7 @@ function BookingInner() {
             aria-labelledby="terms-modal-title"
             aria-describedby="terms-modal-description"
             className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>

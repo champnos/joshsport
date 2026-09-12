@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 import { getAgeValidation } from "@/lib/booking-rules";
-import { validateBookingDistance, type DistanceCheckResult } from "@/lib/distance-check";
+import { getDistanceValidationErrorStatus, validateBookingDistance, type DistanceCheckResult } from "@/lib/distance-check";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       distanceCheck = await validateBookingDistance(client_postcode);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to check service area.";
-      const status = message.includes("valid UK postcode") ? 400 : message.includes("not configured") ? 503 : 502;
+      const status = getDistanceValidationErrorStatus(message);
       return NextResponse.json({ error: message }, { status });
     }
 

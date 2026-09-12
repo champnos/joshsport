@@ -20,6 +20,12 @@ export interface DistanceCheckResult {
   withinRange: boolean;
 }
 
+export function getDistanceValidationErrorStatus(message: string) {
+  if (message.includes("valid UK postcode")) return 400;
+  if (message.includes("not configured")) return 503;
+  return 502;
+}
+
 async function lookupPostcodeCoordinates(postcode: string): Promise<Coordinates> {
   const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`, {
     headers: { Accept: "application/json" },
