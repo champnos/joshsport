@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    if (booking.status === "confirmed" || booking.status === "cancelled" || booking.status === "completed") {
+    if (booking.status === "cancelled" || booking.status === "completed") {
       console.log("Skipping charge.succeeded status update for terminal booking state", {
         bookingId: booking.id,
         status: booking.status,
@@ -95,9 +95,17 @@ export async function POST(req: NextRequest) {
         payment_intent_id: paymentIntentId ?? booking.payment_intent_id ?? null,
       })
       .eq("id", booking.id)
+      .eq("status", "pending_payment")
       .select("*")
       .single();
     if (error) {
+      if (error.code === "PGRST116") {
+        console.log("Skipping duplicate charge.succeeded processing for booking", {
+          bookingId: booking.id,
+          payment_intent: charge.payment_intent,
+        });
+        return NextResponse.json({ received: true });
+      }
       console.error("Failed to confirm booking from webhook:", error);
       return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
     }

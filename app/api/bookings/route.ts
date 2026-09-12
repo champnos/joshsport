@@ -9,6 +9,28 @@ function normalizePhone(phoneValue: unknown) {
   return `${hasLeadingPlus ? "+" : ""}${rawPhone.replace(/\D/g, "")}`;
 }
 
+function matchesRequestedBooking(
+  booking: {
+    treatment_id: string | null;
+    duration_mins: number | null;
+    date: string | null;
+    start_time: string | null;
+  },
+  requestedBooking: {
+    treatmentId: string;
+    duration: number;
+    date: string;
+    startTime: string;
+  },
+) {
+  return (
+    booking.treatment_id === requestedBooking.treatmentId &&
+    booking.duration_mins === requestedBooking.duration &&
+    booking.date === requestedBooking.date &&
+    booking.start_time === requestedBooking.startTime
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
@@ -31,6 +53,12 @@ export async function POST(request: Request) {
     const requestedDuration = Number(body?.duration_mins);
     const requestedClientEmail = typeof body?.client_email === "string" ? body.client_email.trim() : "";
     const requestedClientPhone = normalizePhone(body?.client_phone);
+    const requestedBooking = {
+      treatmentId: requestedTreatmentId,
+      duration: Number.isFinite(requestedDuration) ? requestedDuration : 0,
+      date: requestedDate,
+      startTime: requestedStartTime,
+    };
 
     let pendingBookingQuery = supabaseAdmin
       .from("bookings")
@@ -38,23 +66,20 @@ export async function POST(request: Request) {
       .eq("status", "pending_payment")
       .gte("created_at", pendingCutoff)
       .eq("client_phone", requestedClientPhone)
-      .limit(1);
+      .order("created_at", { ascending: false })
+      .limit(10);
 
     if (requestedClientEmail) {
       pendingBookingQuery = pendingBookingQuery.eq("client_email", requestedClientEmail);
     }
 
-    const { data: existingPendingBooking, error: existingPendingBookingError } = await pendingBookingQuery.maybeSingle();
+    const { data: existingPendingBookings, error: existingPendingBookingError } = await pendingBookingQuery;
     if (existingPendingBookingError) throw existingPendingBookingError;
-    if (existingPendingBooking) {
-      const isSamePendingBooking =
-        existingPendingBooking.treatment_id === requestedTreatmentId &&
-        existingPendingBooking.duration_mins === requestedDuration &&
-        existingPendingBooking.date === requestedDate &&
-        existingPendingBooking.start_time === requestedStartTime;
+    if (existingPendingBookings && existingPendingBookings.length > 0) {
+      const exactPendingBooking = existingPendingBookings.find((booking) => matchesRequestedBooking(booking, requestedBooking));
 
-      if (isSamePendingBooking) {
-        return NextResponse.json({ id: existingPendingBooking.id, status: existingPendingBooking.status }, { status: 200 });
+      if (exactPendingBooking) {
+        return NextResponse.json({ id: exactPendingBooking.id, status: exactPendingBooking.status }, { status: 200 });
       }
 
       return NextResponse.json(
@@ -70,7 +95,35 @@ export async function POST(request: Request) {
     };
 
     const { data, error } = await supabaseAdmin.from("bookings").insert([insertPayload]).select().single();
-    if (error) throw error;
+    if (error) {
+      if (error.code === "23505") {
+        let existingPendingBookingQuery = supabaseAdmin
+          .from("bookings")
+          .select("id, status, treatment_id, duration_mins, date, start_time")
+          .eq("status", "pending_payment")
+          .eq("client_phone", preparedBooking.normalizedBooking.client_phone)
+          .eq("treatment_id", preparedBooking.normalizedBooking.treatment_id)
+          .eq("duration_mins", preparedBooking.normalizedBooking.duration_mins)
+          .eq("date", preparedBooking.normalizedBooking.date)
+          .eq("start_time", preparedBooking.normalizedBooking.start_time)
+          .limit(1);
+
+        if (preparedBooking.normalizedBooking.client_email) {
+          existingPendingBookingQuery = existingPendingBookingQuery.eq(
+            "client_email",
+            preparedBooking.normalizedBooking.client_email,
+          );
+        }
+
+        const { data: duplicateBooking, error: duplicateBookingError } = await existingPendingBookingQuery.maybeSingle();
+        if (duplicateBookingError) throw duplicateBookingError;
+        if (duplicateBooking) {
+          return NextResponse.json({ id: duplicateBooking.id, status: duplicateBooking.status }, { status: 200 });
+        }
+      }
+
+      throw error;
+    }
 
     return NextResponse.json(data, { status: 201 });
   } catch (err) {
