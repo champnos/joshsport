@@ -76,12 +76,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    if (ageValidation.error) {
-      return NextResponse.json({ error: ageValidation.error }, { status: 400 });
-    }
-
     if (!ageValidation.isAdult) {
-      return NextResponse.json({ error: "You must be at least 18 years old to book a massage." }, { status: 400 });
+      return NextResponse.json(
+        { error: ageValidation.error || "You must be at least 18 years old to book a massage." },
+        { status: 400 },
+      );
     }
 
     if (!termsAccepted) {

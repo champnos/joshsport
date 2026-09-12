@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -104,6 +104,7 @@ function BookingInner() {
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const distanceCheckRequestRef = useRef(0);
 
   // Load treatments, settings, and working dates on mount
   useEffect(() => {
@@ -184,6 +185,8 @@ function BookingInner() {
 
   useEffect(() => {
     const normalizedPostcode = normalizePostcode(clientPostcode);
+    const requestId = distanceCheckRequestRef.current + 1;
+    distanceCheckRequestRef.current = requestId;
 
     setDistanceCheck(null);
     setDistanceMessage("");
@@ -210,7 +213,7 @@ function BookingInner() {
         });
         const payload = await response.json();
 
-        if (cancelled) return;
+        if (cancelled || requestId !== distanceCheckRequestRef.current) return;
 
         if (!response.ok) {
           setDistanceMessage(payload.error ?? "Unable to check your postcode right now.");
@@ -225,11 +228,11 @@ function BookingInner() {
             : `Sorry, this postcode is ${result.distanceMiles.toFixed(1)} miles away, outside the ${result.maxTravelDistanceMiles}-mile service area.`,
         );
       } catch (err) {
-        if ((err as Error).name !== "AbortError" && !cancelled) {
+        if ((err as Error).name !== "AbortError" && !cancelled && requestId === distanceCheckRequestRef.current) {
           setDistanceMessage("Unable to check your postcode right now.");
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && requestId === distanceCheckRequestRef.current) {
           setCheckingDistance(false);
         }
       }
@@ -918,10 +921,17 @@ function BookingInner() {
 
       {showTermsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue/70 px-4 py-8">
-          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="terms-modal-title"
+            className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl"
+          >
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
-                <h2 className="text-xl font-bold text-brand-blue">{TERMS_AND_CONDITIONS.title}</h2>
+                <h2 id="terms-modal-title" className="text-xl font-bold text-brand-blue">
+                  {TERMS_AND_CONDITIONS.title}
+                </h2>
                 <p className="mt-1 text-sm text-gray-600">{TERMS_AND_CONDITIONS.intro}</p>
               </div>
               <button
