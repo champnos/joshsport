@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
       .eq("status", "pending_payment")
       .select("*")
       .single();
+
     if (error) {
       if (error.code === "PGRST116") {
         const { data: currentBooking, error: currentBookingError } = await supabaseAdmin
@@ -128,6 +129,19 @@ export async function POST(req: NextRequest) {
       }
       console.error("Failed to confirm booking from webhook:", error);
       return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
+    }
+
+    if (updatedBooking.voucher_code) {
+      const { data: incremented, error: voucherUsageError } = await supabaseAdmin.rpc("increment_voucher_usage", {
+        voucher_code_input: updatedBooking.voucher_code,
+      });
+      if (voucherUsageError || incremented !== true) {
+        console.error("Voucher usage increment failed after charge.succeeded", {
+          voucherCode: updatedBooking.voucher_code,
+          bookingId: updatedBooking.id,
+          voucherUsageError,
+        });
+      }
     }
 
     await sendBookingEmails(updatedBooking);

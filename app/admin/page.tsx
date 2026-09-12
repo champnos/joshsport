@@ -750,6 +750,13 @@ export default function AdminPage() {
                 <p className="text-blue-100">Configure working hours, booking window, and buffer time between appointments</p>
               </div>
             </Link>
+
+            <Link href="/admin/vouchers" className="block bg-gradient-to-r from-brand-gold to-amber-500 rounded-2xl border border-gray-100 p-8 shadow-sm hover:shadow-lg transition-shadow">
+              <div className="text-brand-blue">
+                <h3 className="text-2xl font-bold mb-2">🎟️ Voucher Codes</h3>
+                <p className="text-brand-blue/80">Create and manage discount vouchers for checkout</p>
+              </div>
+            </Link>
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { getAgeValidation } from "@/lib/booking-rules";
 import { getDistanceValidationErrorStatus, validateBookingDistance, type DistanceCheckResult } from "@/lib/distance-check";
 import { supabase } from "@/lib/supabase";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
+import { VoucherValidationError, calculateDiscountAmount, validateOptionalVoucher } from "@/lib/vouchers";
 
 interface NormalizedBooking {
   treatment_id: string;
@@ -24,11 +25,15 @@ interface NormalizedBooking {
   injury_recent_notes: string;
   injury_previous: boolean;
   injury_previous_notes: string;
+  voucher_code: string;
 }
 
 export interface PreparedBooking {
   normalizedBooking: NormalizedBooking;
   distanceCheck: DistanceCheckResult;
+  baseAmountInPence: number;
+  discountAmountInPence: number;
+  discountPercentage: number;
   amountInPence: number;
 }
 
@@ -68,6 +73,7 @@ function normalizeBooking(body: Record<string, unknown>): NormalizedBooking {
     injury_recent_notes: typeof body.injury_recent_notes === "string" ? body.injury_recent_notes.trim() : "",
     injury_previous: typeof body.injury_previous === "boolean" ? body.injury_previous : false,
     injury_previous_notes: typeof body.injury_previous_notes === "string" ? body.injury_previous_notes.trim() : "",
+    voucher_code: "",
   };
 }
 
@@ -186,14 +192,37 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
     throw new BookingValidationError("Selected treatment duration is not available.", 400);
   }
 
+  let discountPercentage = 0;
+  let voucherCode = "";
+  try {
+    const voucherValidation = await validateOptionalVoucher((body as Record<string, unknown>).voucher_code);
+    if (voucherValidation) {
+      discountPercentage = voucherValidation.discountPercentage;
+      voucherCode = voucherValidation.code;
+    }
+  } catch (error) {
+    if (error instanceof VoucherValidationError) {
+      throw new BookingValidationError(error.message, 400);
+    }
+    throw error;
+  }
+
+  const baseAmountInPence = Math.round(treatmentPrice * 100);
+  const discountAmountInPence = calculateDiscountAmount(baseAmountInPence, discountPercentage);
+  const amountInPence = Math.max(baseAmountInPence - discountAmountInPence, 0);
+
   return {
     normalizedBooking: {
       ...normalizedBooking,
       treatment_name: treatment.name,
       client_postcode: distanceCheck.normalizedPostcode,
       client_phone: normalizedPhone,
+      voucher_code: voucherCode,
     },
     distanceCheck,
-    amountInPence: Math.round(treatmentPrice * 100),
+    baseAmountInPence,
+    discountAmountInPence,
+    discountPercentage,
+    amountInPence,
   };
 }

@@ -123,6 +123,11 @@ export async function POST(request: Request) {
     const preparedBooking = await validateAndPrepareBooking(body);
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
+      voucher_code: preparedBooking.normalizedBooking.voucher_code || null,
+      voucher_discount_percentage: preparedBooking.discountPercentage || null,
+      base_amount_pence: preparedBooking.baseAmountInPence,
+      discount_amount_pence: preparedBooking.discountAmountInPence,
+      final_amount_pence: preparedBooking.amountInPence,
       status: "pending_payment",
     };
 

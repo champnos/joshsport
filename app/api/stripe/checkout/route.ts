@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createBookingConfirmationToken } from "@/lib/booking-confirmation";
 import { verifyBookingCheckoutToken } from "@/lib/booking-checkout-token";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
-      .select("id, treatment_id, treatment_name, duration_mins, date, start_time, client_email, client_phone, status")
+      .select("id, treatment_id, treatment_name, duration_mins, date, start_time, client_email, client_phone, status, voucher_code, voucher_discount_percentage, base_amount_pence, discount_amount_pence, final_amount_pence")
       .eq("id", bookingId)
       .single();
 
@@ -53,22 +54,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Booking is not awaiting payment" }, { status: 409 });
     }
 
-    const { data: treatment, error: treatmentError } = await supabaseAdmin
-      .from("treatments")
-      .select("durations")
-      .eq("id", booking.treatment_id)
-      .single();
+    let unitAmount =
+      typeof booking.final_amount_pence === "number" && booking.final_amount_pence > 0
+        ? booking.final_amount_pence
+        : null;
 
-    if (treatmentError || !treatment) {
-      return NextResponse.json({ error: "Treatment not found" }, { status: 404 });
-    }
+    if (unitAmount === null) {
+      const { data: treatment, error: treatmentError } = await supabaseAdmin
+        .from("treatments")
+        .select("durations")
+        .eq("id", booking.treatment_id)
+        .single();
 
-    const price = getDurationPrice(treatment.durations, booking.duration_mins);
-    if (price === null) {
-      return NextResponse.json({ error: "Selected duration is not available" }, { status: 400 });
+      if (treatmentError || !treatment) {
+        return NextResponse.json({ error: "Treatment not found" }, { status: 404 });
+      }
+
+      const price = getDurationPrice(treatment.durations, booking.duration_mins);
+      if (price === null) {
+        return NextResponse.json({ error: "Selected duration is not available" }, { status: 400 });
+      }
+
+      unitAmount = Math.round(price * 100);
     }
 
     const normalizedClientEmail = normalizeEmail(booking.client_email);
+    const successUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking-success`);
+    successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
+    successUrl.searchParams.set("booking_id", booking.id);
+    successUrl.searchParams.set("confirmation_token", createBookingConfirmationToken(booking.id));
 
     const session = await stripe.checkout.sessions.create(
       {
@@ -81,7 +95,7 @@ export async function POST(req: NextRequest) {
                 name: booking.treatment_name,
                 description: `${booking.duration_mins} minute session on ${booking.date} at ${booking.start_time}`,
               },
-              unit_amount: Math.round(price * 100),
+              unit_amount: unitAmount,
             },
             quantity: 1,
           },
@@ -93,9 +107,14 @@ export async function POST(req: NextRequest) {
           duration_mins: String(booking.duration_mins),
           date: booking.date,
           start_time: booking.start_time,
+          voucher_code: booking.voucher_code || "",
+          discount_percentage: String(booking.voucher_discount_percentage || 0),
+          base_amount_pence: String(booking.base_amount_pence || unitAmount),
+          discount_amount_pence: String(booking.discount_amount_pence || 0),
+          final_amount_pence: String(unitAmount),
         },
         mode: "payment",
-        success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
+        success_url: successUrl.toString(),
         cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking?cancelled=true`,
         customer_email: normalizedClientEmail || undefined,
         payment_intent_data: {
@@ -106,6 +125,11 @@ export async function POST(req: NextRequest) {
             duration_mins: String(booking.duration_mins),
             date: booking.date,
             start_time: booking.start_time,
+            voucher_code: booking.voucher_code || "",
+            discount_percentage: String(booking.voucher_discount_percentage || 0),
+            base_amount_pence: String(booking.base_amount_pence || unitAmount),
+            discount_amount_pence: String(booking.discount_amount_pence || 0),
+            final_amount_pence: String(unitAmount),
           },
         },
       },
