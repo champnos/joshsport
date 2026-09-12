@@ -262,7 +262,13 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(data, { status: 201 });
-  } catch {
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    console.error("Booking creation failed:", {
+      error: errorMessage,
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
     return NextResponse.json({ error: "Unable to create booking." }, { status: 500 });
   }
 }
