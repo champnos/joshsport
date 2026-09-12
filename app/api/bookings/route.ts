@@ -47,6 +47,10 @@ function isPendingPaymentHoldConflict(error: { code?: string; message?: string |
   );
 }
 
+function phoneMatches(leftPhone: string, rightPhone: string) {
+  return leftPhone !== "" && rightPhone !== "" && leftPhone === rightPhone;
+}
+
 export async function GET(request: NextRequest) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
@@ -88,7 +92,7 @@ export async function POST(request: Request) {
     if (existingPendingBookings && existingPendingBookings.length > 0) {
       const sameCustomerPendingBookings = existingPendingBookings.filter(
         (booking) =>
-          normalizePhone(booking.client_phone ?? "") === requestedClientPhone ||
+          phoneMatches(normalizePhone(booking.client_phone ?? ""), requestedClientPhone) ||
           (requestedClientEmail !== "" && normalizedEmailFromBooking(booking) === requestedClientEmail),
       );
       const exactPendingBooking = sameCustomerPendingBookings.find((booking) => matchesRequestedBooking(booking, requestedBooking));
@@ -140,7 +144,7 @@ export async function POST(request: Request) {
         if (duplicateBookingError) throw duplicateBookingError;
         const duplicateBooking = duplicateBookings?.find(
           (booking) =>
-            normalizePhone(booking.client_phone ?? "") === preparedBooking.normalizedBooking.client_phone ||
+            phoneMatches(normalizePhone(booking.client_phone ?? ""), preparedBooking.normalizedBooking.client_phone) ||
             (preparedBooking.normalizedBooking.client_email !== "" &&
               normalizedEmailFromBooking(booking) === preparedBooking.normalizedBooking.client_email),
         );
