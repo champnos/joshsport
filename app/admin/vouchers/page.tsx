@@ -238,9 +238,19 @@ export default function AdminVouchersPage() {
         method: "DELETE",
         headers,
       });
+      const payload = await response.json().catch(() => null);
+      if (response.status === 401) {
+        localStorage.removeItem("adminToken");
+        setIsAuthed(false);
+        setAuthError("Your admin session expired. Please log in again.");
+        return;
+      }
       if (!response.ok) {
-        const payload = await response.json().catch(() => null);
         setError(payload?.error ?? "Unable to delete voucher.");
+        return;
+      }
+      if (payload?.deactivated && payload?.voucher) {
+        setVouchers((current) => current.map((voucher) => (voucher.id === voucherId ? payload.voucher as Voucher : voucher)));
         return;
       }
       setVouchers((current) => current.filter((voucher) => voucher.id !== voucherId));

@@ -242,7 +242,6 @@ export async function POST(request: Request) {
         {
           id: existingBooking.id,
           status: existingBooking.status,
-          confirmation_token: createBookingConfirmationToken(existingBooking.id),
         },
         { status: 200 },
       );
@@ -272,7 +271,6 @@ export async function POST(request: Request) {
             {
               id: duplicateBooking.id,
               status: duplicateBooking.status,
-              confirmation_token: createBookingConfirmationToken(duplicateBooking.id),
             },
             { status: 200 },
           );
@@ -283,10 +281,11 @@ export async function POST(request: Request) {
     if (preparedBooking.normalizedBooking.voucher_code) {
       const incremented = await incrementVoucherUsage(preparedBooking.normalizedBooking.voucher_code);
       if (!incremented) {
-        console.warn("Voucher usage was not incremented after booking insert", {
-          bookingId: data.id,
-          voucherCode: preparedBooking.normalizedBooking.voucher_code,
-        });
+        await supabaseAdmin.from("bookings").delete().eq("id", data.id);
+        return NextResponse.json(
+          { error: "Voucher code is no longer available. Please remove it and try again." },
+          { status: 409 },
+        );
       }
     }
 

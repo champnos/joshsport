@@ -102,11 +102,32 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
 
-    const { data, error } = await supabaseAdmin.from("vouchers").delete().eq("id", params.id).select("id").maybeSingle();
-    if (error) throw error;
-    if (!data) {
+    const { data: existingVoucher, error: existingVoucherError } = await supabaseAdmin
+      .from("vouchers")
+      .select("id, uses_count, code, discount_percentage, active, expires_at, max_uses, created_at")
+      .eq("id", params.id)
+      .maybeSingle();
+
+    if (existingVoucherError) throw existingVoucherError;
+    if (!existingVoucher) {
       return NextResponse.json({ error: "Voucher not found." }, { status: 404 });
     }
+
+    if ((existingVoucher.uses_count ?? 0) > 0) {
+      const { data: deactivatedVoucher, error: deactivateError } = await supabaseAdmin
+        .from("vouchers")
+        .update({ active: false })
+        .eq("id", params.id)
+        .select("id, code, discount_percentage, active, expires_at, max_uses, uses_count, created_at")
+        .single();
+
+      if (deactivateError) throw deactivateError;
+
+      return NextResponse.json({ success: true, deactivated: true, voucher: deactivatedVoucher });
+    }
+
+    const { error } = await supabaseAdmin.from("vouchers").delete().eq("id", params.id);
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {
