@@ -23,7 +23,41 @@ export function createBookingCheckoutTokenForBooking(bookingId: string, clientPh
 }
 
 function parseBookingCheckoutTokenExpiry(expiresAt: string) {
-  return /^\d+$/.test(expiresAt) ? Number(expiresAt) : Number.NaN;
+  if (/^\d+$/.test(expiresAt)) {
+    return Number(expiresAt);
+  }
+
+  const parsedLegacyTimestamp = Date.parse(expiresAt);
+  return Number.isFinite(parsedLegacyTimestamp) ? parsedLegacyTimestamp : Number.NaN;
+}
+
+function parseBookingCheckoutToken(token: string) {
+  const dotSeparatorIndex = token.lastIndexOf(".");
+  if (dotSeparatorIndex !== -1) {
+    const providedSignature = token.slice(dotSeparatorIndex + 1);
+    if (/^[a-f0-9]{64}$/i.test(providedSignature)) {
+      return {
+        expiresAt: token.slice(0, dotSeparatorIndex),
+        providedSignature,
+        format: "dot",
+      } as const;
+    }
+  }
+
+  const colonSeparatorIndex = token.lastIndexOf(":");
+  if (colonSeparatorIndex !== -1) {
+    const providedSignature = token.slice(colonSeparatorIndex + 1);
+    if (!/^[a-f0-9]{64}$/i.test(providedSignature)) {
+      return null;
+    }
+    return {
+      expiresAt: token.slice(0, colonSeparatorIndex),
+      providedSignature,
+      format: "colon",
+    } as const;
+  }
+
+  return null;
 }
 
 export function verifyBookingCheckoutToken(bookingId: string, clientPhone: string, clientEmail: string, token: string) {
@@ -39,16 +73,15 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
     return isValid;
   };
 
-  const separatorIndex = token.lastIndexOf(".");
-  if (separatorIndex === -1) {
-    return logValidationResult(false, "invalid_token_format", { separatorIndex });
+  const tokenParts = parseBookingCheckoutToken(token);
+  if (!tokenParts) {
+    return logValidationResult(false, "invalid_token_format");
   }
 
-  const expiresAt = token.slice(0, separatorIndex);
-  const providedSignature = token.slice(separatorIndex + 1);
+  const { expiresAt, providedSignature, format } = tokenParts;
   if (!expiresAt || !providedSignature) {
     return logValidationResult(false, "missing_token_parts", {
-      separatorIndex,
+      format,
       hasExpiresAt: Boolean(expiresAt),
       hasProvidedSignature: Boolean(providedSignature),
     });
