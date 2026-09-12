@@ -79,12 +79,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ slots: [], booked_slots: [] });
     }
 
-    // Get existing bookings for that day (only confirmed bookings block slots)
+    // Get existing bookings for that day (only confirmed and pending_payment block slots)
     const { data: existingBookings } = await supabase
       .from("bookings")
       .select("start_time, duration_mins")
       .eq("date", date)
-      .eq("status", "confirmed");
+      .in("status", ["confirmed", "pending_payment"]);
 
     const slots = getBookableSlots(
       date,
