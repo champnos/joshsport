@@ -40,7 +40,16 @@ Edit `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ADMIN_PASSWORD=your-secure-password
+BOOKING_CHECKOUT_TOKEN_SECRET=your-64-char-hex-secret
+BOOKING_CONFIRMATION_SECRET=your-64-char-hex-secret
 ```
+
+Generate the booking token secrets (run once and copy each output value):
+```bash
+node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'));console.log(c.randomBytes(32).toString('hex'));"
+```
+- 1st value → `BOOKING_CHECKOUT_TOKEN_SECRET` (checkout tokens, 30 min expiry)
+- 2nd value → `BOOKING_CONFIRMATION_SECRET` (confirmation tokens, 24 hr expiry)
 
 ### 4. Run development server
 ```bash
@@ -54,7 +63,9 @@ Visit:
 ## Deploying to Vercel
 1. Push to GitHub
 2. Import the repo in [vercel.com](https://vercel.com)
-3. Add the environment variables from `.env.local` in the Vercel dashboard
+3. Add the environment variables from `.env.local` in the Vercel dashboard, including:
+   - `BOOKING_CHECKOUT_TOKEN_SECRET`
+   - `BOOKING_CONFIRMATION_SECRET`
 4. Deploy — Vercel will auto-build on every push to `main`
 
 ## Adding the Real Logo
