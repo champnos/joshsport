@@ -56,9 +56,9 @@ export async function POST(req: NextRequest) {
 
     console.error("Stripe checkout token verification result:", {
       bookingId,
-      clientPhone: booking.client_phone || "",
-      clientEmail: normalizedClientEmail,
       checkoutTokenLength: checkoutToken.length,
+      hasClientPhone: Boolean(booking.client_phone),
+      hasClientEmail: Boolean(normalizedClientEmail),
       isCheckoutTokenValid,
     });
 

@@ -26,8 +26,8 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
   const logValidationResult = (isValid: boolean, reason: string, details: Record<string, unknown> = {}) => {
     console.error("Booking checkout token validation result:", {
       bookingId,
-      clientPhone,
-      clientEmail,
+      hasClientPhone: Boolean(clientPhone),
+      hasClientEmail: Boolean(clientEmail),
       isValid,
       reason,
       ...details,
@@ -66,8 +66,8 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
 
   if (providedBuffer.length !== expectedBuffer.length) {
     return logValidationResult(false, "signature_length_mismatch", {
-      expectedSignature: expectedToken,
-      providedSignature,
+      expectedSignatureLength: expectedToken.length,
+      providedSignatureLength: providedSignature.length,
       expectedBufferLength: expectedBuffer.length,
       providedBufferLength: providedBuffer.length,
     });
@@ -76,8 +76,8 @@ export function verifyBookingCheckoutToken(bookingId: string, clientPhone: strin
   const isSignatureValid = timingSafeEqual(providedBuffer, expectedBuffer);
   if (!isSignatureValid) {
     return logValidationResult(false, "signature_mismatch", {
-      expectedSignature: expectedToken,
-      providedSignature,
+      expectedSignatureLength: expectedToken.length,
+      providedSignatureLength: providedSignature.length,
     });
   }
 
