@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 export const BOOKING_CHECKOUT_TOKEN_TTL_MS = 30 * 60 * 1000;
 
 function getCheckoutTokenSecret() {
-  const secret = process.env.BOOKING_CHECKOUT_TOKEN_SECRET || process.env.STRIPE_SECRET_KEY || "";
+  const secret = process.env.BOOKING_CHECKOUT_TOKEN_SECRET || "";
   if (!secret) {
     throw new Error("Missing booking checkout token secret.");
   }

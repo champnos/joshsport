@@ -81,8 +81,7 @@ export async function POST(request: Request) {
       .select("id, status, treatment_id, duration_mins, date, start_time, client_email, client_phone")
       .eq("status", "pending_payment")
       .gte("created_at", pendingCutoff)
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .order("created_at", { ascending: false });
 
     const { data: existingPendingBookings, error: existingPendingBookingError } = await pendingBookingQuery;
     if (existingPendingBookingError) throw existingPendingBookingError;
@@ -135,15 +134,15 @@ export async function POST(request: Request) {
           .eq("date", preparedBooking.normalizedBooking.date)
           .eq("start_time", preparedBooking.normalizedBooking.start_time)
           .gte("created_at", pendingCutoff)
-          .order("created_at", { ascending: false })
-          .limit(50);
+          .order("created_at", { ascending: false });
 
         const { data: duplicateBookings, error: duplicateBookingError } = await existingPendingBookingQuery;
         if (duplicateBookingError) throw duplicateBookingError;
         const duplicateBooking = duplicateBookings?.find(
           (booking) =>
-            normalizePhone(booking.client_phone ?? "") === preparedBooking.normalizedBooking.client_phone &&
-            normalizedEmailFromBooking(booking) === preparedBooking.normalizedBooking.client_email,
+            normalizePhone(booking.client_phone ?? "") === preparedBooking.normalizedBooking.client_phone ||
+            (preparedBooking.normalizedBooking.client_email !== "" &&
+              normalizedEmailFromBooking(booking) === preparedBooking.normalizedBooking.client_email),
         );
         if (duplicateBooking) {
           return NextResponse.json(
