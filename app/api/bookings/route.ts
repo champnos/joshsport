@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.from("bookings").select("*").order("date").order("start_time");
     if (error) throw error;
     return NextResponse.json(data ?? []);
-  } catch {
+  } catch (err) {
+    console.error("Failed to fetch bookings:", err);
     return NextResponse.json({ error: "Unable to load bookings." }, { status: 500 });
   }
 }
@@ -22,6 +23,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log("Booking request received:", { 
+      treatment_id: body.treatment_id,
+      date: body.date,
+      start_time: body.start_time,
+      client_name: body.client_name,
+    });
+
     const termsAccepted = body.terms_accepted === true;
     const normalizedBooking = {
       treatment_id: body.treatment_id,
@@ -73,10 +81,12 @@ export async function POST(request: Request) {
       !client_address ||
       !client_postcode
     ) {
+      console.warn("Missing required fields");
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
     if (!ageValidation.isAdult) {
+      console.warn("Age validation failed:", ageValidation.error);
       return NextResponse.json(
         { error: ageValidation.error || "You must be at least 18 years old to book a massage." },
         { status: 400 },
@@ -84,29 +94,39 @@ export async function POST(request: Request) {
     }
 
     if (!termsAccepted) {
+      console.warn("Terms not accepted");
       return NextResponse.json({ error: "You must accept the terms and conditions before booking." }, { status: 400 });
     }
 
     if (!isValidPhone) {
+      console.warn("Invalid phone number:", normalizedPhone);
       return NextResponse.json(
         { error: "Phone number must contain 7-15 digits (optional leading +; spaces, hyphens, and parentheses allowed)." },
         { status: 400 }
       );
     }
 
+    console.log("Validation passed, ensuring rolling working dates...");
     await ensureRollingWorkingDates();
 
+    console.log("Fetching working date data for:", date);
     const { data: workingDateData, error: workingDateError } = await supabase
       .from("working_dates")
       .select("date, available, start_time, end_time, blocked_slots")
       .eq("date", date)
       .single();
 
-    if (workingDateError && workingDateError.code !== "PGRST116") throw workingDateError;
+    if (workingDateError && workingDateError.code !== "PGRST116") {
+      console.error("Working date query error:", workingDateError);
+      throw workingDateError;
+    }
+    
     if (!workingDateData) {
+      console.warn("No working date data found for:", date);
       return NextResponse.json({ error: "Selected date is not available for bookings." }, { status: 409 });
     }
 
+    console.log("Fetching existing bookings for:", date);
     const { data: existingBookings } = await supabase
       .from("bookings")
       .select("start_time, duration_mins")
@@ -116,19 +136,24 @@ export async function POST(request: Request) {
     const settings = await getBookingSettings();
     const available = getBookableSlots(date, duration_mins, workingDateData, existingBookings ?? [], settings);
     if (!available.includes(start_time)) {
+      console.warn("Requested time not available:", start_time, "Available slots:", available);
       return NextResponse.json({ error: "Selected time is no longer available." }, { status: 409 });
     }
 
+    console.log("Validating booking distance for postcode:", client_postcode);
     let distanceCheck: DistanceCheckResult;
     try {
       distanceCheck = await validateBookingDistance(client_postcode);
+      console.log("Distance check passed:", distanceCheck);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to check service area.";
       const status = getDistanceValidationErrorStatus(message);
+      console.error("Distance validation error:", message);
       return NextResponse.json({ error: message }, { status });
     }
 
     if (!distanceCheck.withinRange) {
+      console.warn("Postcode outside service area:", client_postcode, distanceCheck);
       return NextResponse.json(
         {
           error:
@@ -140,6 +165,7 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log("All validations passed, inserting booking...");
     const insertPayload = {
       ...normalizedBooking,
       client_postcode: distanceCheck.normalizedPostcode,
@@ -147,7 +173,12 @@ export async function POST(request: Request) {
     };
 
     const { data, error } = await supabase.from("bookings").insert([insertPayload]).select().single();
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase insert error:", error);
+      throw error;
+    }
+
+    console.log("Booking inserted successfully:", data?.id);
 
     // Format time for email
     const formatTime = (t: string) => {
@@ -210,6 +241,7 @@ export async function POST(request: Request) {
           </div>
         `,
       });
+      console.log("Email sent to Josh");
     } catch (emailError) {
       console.error("Failed to send email to Josh:", emailError);
       // Don't fail the booking if email fails
@@ -256,6 +288,7 @@ export async function POST(request: Request) {
           </div>
         `,
       });
+      console.log("Confirmation email sent to client");
     } catch (emailError) {
       console.error("Failed to send confirmation email to client:", emailError);
       // Don't fail the booking if email fails
@@ -263,12 +296,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    console.error("Booking creation failed:", {
-      error: errorMessage,
-      stack: err instanceof Error ? err.stack : undefined,
-      timestamp: new Date().toISOString(),
-    });
+    console.error("Booking creation failed with error:", err);
+    if (err && typeof err === "object") {
+      console.error("Error details:", JSON.stringify(err, null, 2));
+    }
     return NextResponse.json({ error: "Unable to create booking." }, { status: 500 });
   }
 }
