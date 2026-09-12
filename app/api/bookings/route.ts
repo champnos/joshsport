@@ -81,15 +81,16 @@ export async function POST(request: Request) {
       .select("id, status, treatment_id, duration_mins, date, start_time, client_email, client_phone")
       .eq("status", "pending_payment")
       .gte("created_at", pendingCutoff)
-      .eq("client_phone", requestedClientPhone)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(50);
 
     const { data: existingPendingBookings, error: existingPendingBookingError } = await pendingBookingQuery;
     if (existingPendingBookingError) throw existingPendingBookingError;
     if (existingPendingBookings && existingPendingBookings.length > 0) {
       const sameCustomerPendingBookings = existingPendingBookings.filter(
-        (booking) => normalizedEmailFromBooking(booking) === requestedClientEmail,
+        (booking) =>
+          normalizePhone(booking.client_phone ?? "") === requestedClientPhone ||
+          (requestedClientEmail !== "" && normalizedEmailFromBooking(booking) === requestedClientEmail),
       );
       const exactPendingBooking = sameCustomerPendingBookings.find((booking) => matchesRequestedBooking(booking, requestedBooking));
 
@@ -116,39 +117,6 @@ export async function POST(request: Request) {
       }
     }
 
-    if (requestedClientEmail) {
-      const { data: sameSlotPendingBookings, error: sameSlotPendingBookingsError } = await supabaseAdmin
-        .from("bookings")
-        .select("id, status, client_email, client_phone")
-        .eq("status", "pending_payment")
-        .eq("treatment_id", requestedBooking.treatmentId)
-        .eq("duration_mins", requestedBooking.duration)
-        .eq("date", requestedBooking.date)
-        .eq("start_time", requestedBooking.startTime)
-        .gte("created_at", pendingCutoff)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      if (sameSlotPendingBookingsError) throw sameSlotPendingBookingsError;
-
-      const emailMatchedPendingBooking = sameSlotPendingBookings?.find(
-        (booking) => normalizedEmailFromBooking(booking) === requestedClientEmail,
-      );
-      if (emailMatchedPendingBooking) {
-        return NextResponse.json(
-          {
-            id: emailMatchedPendingBooking.id,
-            status: emailMatchedPendingBooking.status,
-            checkoutToken: createBookingCheckoutTokenForBooking(
-              emailMatchedPendingBooking.id,
-              emailMatchedPendingBooking.client_phone ?? requestedClientPhone,
-              normalizedEmailFromBooking(emailMatchedPendingBooking),
-            ),
-          },
-          { status: 200 },
-        );
-      }
-    }
-
     const preparedBooking = await validateAndPrepareBooking(body);
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
@@ -162,19 +130,20 @@ export async function POST(request: Request) {
           .from("bookings")
           .select("id, status, treatment_id, duration_mins, date, start_time, client_email, client_phone")
           .eq("status", "pending_payment")
-          .eq("client_phone", preparedBooking.normalizedBooking.client_phone)
           .eq("treatment_id", preparedBooking.normalizedBooking.treatment_id)
           .eq("duration_mins", preparedBooking.normalizedBooking.duration_mins)
           .eq("date", preparedBooking.normalizedBooking.date)
           .eq("start_time", preparedBooking.normalizedBooking.start_time)
           .gte("created_at", pendingCutoff)
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(50);
 
         const { data: duplicateBookings, error: duplicateBookingError } = await existingPendingBookingQuery;
         if (duplicateBookingError) throw duplicateBookingError;
         const duplicateBooking = duplicateBookings?.find(
-          (booking) => normalizedEmailFromBooking(booking) === preparedBooking.normalizedBooking.client_email,
+          (booking) =>
+            normalizePhone(booking.client_phone ?? "") === preparedBooking.normalizedBooking.client_phone &&
+            normalizedEmailFromBooking(booking) === preparedBooking.normalizedBooking.client_email,
         );
         if (duplicateBooking) {
           return NextResponse.json(
