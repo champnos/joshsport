@@ -151,7 +151,7 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
     .from("bookings")
     .select("start_time, duration_mins")
     .eq("date", date)
-    .neq("status", "cancelled");
+    .eq("status", "confirmed");
 
   const settings = await getBookingSettings();
   const available = getBookableSlots(date, duration_mins, workingDateData, existingBookings ?? [], settings);
