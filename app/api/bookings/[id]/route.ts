@@ -56,7 +56,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         .select("start_time, duration_mins")
         .eq("date", nextDate)
         .neq("id", params.id)
-        .neq("status", "cancelled");
+        .eq("status", "confirmed");
       if (existingBookingsError) throw existingBookingsError;
       const settings = await getBookingSettings();
       const availableSlots = getBookableSlots(
