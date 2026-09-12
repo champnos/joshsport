@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { BookingValidationError, validateAndPrepareBooking } from "@/lib/booking-flow";
-import { createBookingCheckoutTokenForBooking } from "@/lib/booking-checkout-token";
+import { BOOKING_CHECKOUT_TOKEN_TTL_MS, createBookingCheckoutTokenForBooking } from "@/lib/booking-checkout-token";
 
 function normalizePhone(phoneValue: unknown) {
   const rawPhone = typeof phoneValue === "string" ? phoneValue.trim() : "";
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const pendingCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const pendingCutoff = new Date(Date.now() - BOOKING_CHECKOUT_TOKEN_TTL_MS).toISOString();
     const requestedTreatmentId = typeof body?.treatment_id === "string" ? body.treatment_id.trim() : "";
     const requestedDate = typeof body?.date === "string" ? body.date.trim() : "";
     const requestedStartTime = typeof body?.start_time === "string" ? body.start_time.trim() : "";
@@ -127,6 +127,7 @@ export async function POST(request: Request) {
           .eq("duration_mins", preparedBooking.normalizedBooking.duration_mins)
           .eq("date", preparedBooking.normalizedBooking.date)
           .eq("start_time", preparedBooking.normalizedBooking.start_time)
+          .gte("created_at", pendingCutoff)
           .order("created_at", { ascending: false })
           .limit(10);
 

@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
+export const BOOKING_CHECKOUT_TOKEN_TTL_MS = 30 * 60 * 1000;
+
 function getCheckoutTokenSecret() {
   const secret = process.env.BOOKING_CHECKOUT_TOKEN_SECRET || process.env.STRIPE_SECRET_KEY || "";
   if (!secret) {
@@ -15,7 +17,7 @@ function signBookingCheckoutToken(bookingId: string, clientPhone: string, client
 }
 
 export function createBookingCheckoutTokenForBooking(bookingId: string, clientPhone: string, clientEmail: string) {
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + BOOKING_CHECKOUT_TOKEN_TTL_MS).toISOString();
   const signature = signBookingCheckoutToken(bookingId, clientPhone, clientEmail, expiresAt);
   return `${expiresAt}.${signature}`;
 }

@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Selected duration is not available" }, { status: 400 });
     }
 
+    const normalizedClientEmail = normalizeEmail(booking.client_email);
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
         date: booking.date,
         start_time: booking.start_time,
       },
-      customer_email: booking.client_email || undefined,
+      customer_email: normalizedClientEmail || undefined,
       payment_intent_data: {
         metadata: {
           booking_id: booking.id,

@@ -100,11 +100,31 @@ export async function POST(req: NextRequest) {
       .single();
     if (error) {
       if (error.code === "PGRST116") {
-        console.log("Skipping duplicate charge.succeeded processing for booking", {
+        const { data: currentBooking, error: currentBookingError } = await supabaseAdmin
+          .from("bookings")
+          .select("id, status, payment_intent_id")
+          .eq("id", booking.id)
+          .maybeSingle();
+        if (currentBookingError) {
+          console.error("Failed to re-read booking after duplicate webhook attempt:", currentBookingError);
+          return NextResponse.json({ error: "Failed to verify booking state" }, { status: 500 });
+        }
+        if (
+          currentBooking?.status === "confirmed" &&
+          (!paymentIntentId || !currentBooking.payment_intent_id || currentBooking.payment_intent_id === paymentIntentId)
+        ) {
+          console.log("Skipping duplicate charge.succeeded processing for booking", {
+            bookingId: booking.id,
+            payment_intent: charge.payment_intent,
+          });
+          return NextResponse.json({ received: true });
+        }
+        console.error("charge.succeeded could not confirm booking because the status changed unexpectedly", {
           bookingId: booking.id,
+          currentStatus: currentBooking?.status,
           payment_intent: charge.payment_intent,
         });
-        return NextResponse.json({ received: true });
+        return NextResponse.json({ error: "Booking state changed unexpectedly" }, { status: 409 });
       }
       console.error("Failed to confirm booking from webhook:", error);
       return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
