@@ -70,34 +70,22 @@ export async function POST(req: NextRequest) {
 
     const normalizedClientEmail = normalizeEmail(booking.client_email);
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "gbp",
-            product_data: {
-              name: booking.treatment_name,
-              description: `${booking.duration_mins} minute session on ${booking.date} at ${booking.start_time}`,
+    const session = await stripe.checkout.sessions.create(
+      {
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: "gbp",
+              product_data: {
+                name: booking.treatment_name,
+                description: `${booking.duration_mins} minute session on ${booking.date} at ${booking.start_time}`,
+              },
+              unit_amount: Math.round(price * 100),
             },
-            unit_amount: Math.round(price * 100),
+            quantity: 1,
           },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking?cancelled=true`,
-      metadata: {
-        booking_id: booking.id,
-        treatment_id: booking.treatment_id,
-        treatment_name: booking.treatment_name,
-        duration_mins: String(booking.duration_mins),
-        date: booking.date,
-        start_time: booking.start_time,
-      },
-      customer_email: normalizedClientEmail || undefined,
-      payment_intent_data: {
+        ],
         metadata: {
           booking_id: booking.id,
           treatment_id: booking.treatment_id,
@@ -106,8 +94,23 @@ export async function POST(req: NextRequest) {
           date: booking.date,
           start_time: booking.start_time,
         },
+        mode: "payment",
+        success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/booking?cancelled=true`,
+        customer_email: normalizedClientEmail || undefined,
+        payment_intent_data: {
+          metadata: {
+            booking_id: booking.id,
+            treatment_id: booking.treatment_id,
+            treatment_name: booking.treatment_name,
+            duration_mins: String(booking.duration_mins),
+            date: booking.date,
+            start_time: booking.start_time,
+          },
+        },
       },
-    });
+      { idempotencyKey: `booking-checkout-${booking.id}` },
+    );
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error) {
     console.error("Stripe checkout error:", error);

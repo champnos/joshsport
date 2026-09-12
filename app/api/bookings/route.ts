@@ -40,6 +40,13 @@ function matchesRequestedBooking(
   );
 }
 
+function isPendingPaymentHoldConflict(error: { code?: string; message?: string | null; details?: string | null }) {
+  return (
+    error.code === "23505" &&
+    `${error.message ?? ""} ${error.details ?? ""}`.includes("bookings_pending_payment_hold_unique_idx")
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
@@ -109,6 +116,39 @@ export async function POST(request: Request) {
       }
     }
 
+    if (requestedClientEmail) {
+      const { data: sameSlotPendingBookings, error: sameSlotPendingBookingsError } = await supabaseAdmin
+        .from("bookings")
+        .select("id, status, client_email, client_phone")
+        .eq("status", "pending_payment")
+        .eq("treatment_id", requestedBooking.treatmentId)
+        .eq("duration_mins", requestedBooking.duration)
+        .eq("date", requestedBooking.date)
+        .eq("start_time", requestedBooking.startTime)
+        .gte("created_at", pendingCutoff)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (sameSlotPendingBookingsError) throw sameSlotPendingBookingsError;
+
+      const emailMatchedPendingBooking = sameSlotPendingBookings?.find(
+        (booking) => normalizedEmailFromBooking(booking) === requestedClientEmail,
+      );
+      if (emailMatchedPendingBooking) {
+        return NextResponse.json(
+          {
+            id: emailMatchedPendingBooking.id,
+            status: emailMatchedPendingBooking.status,
+            checkoutToken: createBookingCheckoutTokenForBooking(
+              emailMatchedPendingBooking.id,
+              emailMatchedPendingBooking.client_phone ?? requestedClientPhone,
+              normalizedEmailFromBooking(emailMatchedPendingBooking),
+            ),
+          },
+          { status: 200 },
+        );
+      }
+    }
+
     const preparedBooking = await validateAndPrepareBooking(body);
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
@@ -117,7 +157,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabaseAdmin.from("bookings").insert([insertPayload]).select().single();
     if (error) {
-      if (error.code === "23505") {
+      if (isPendingPaymentHoldConflict(error)) {
         const existingPendingBookingQuery = supabaseAdmin
           .from("bookings")
           .select("id, status, treatment_id, duration_mins, date, start_time, client_email, client_phone")
