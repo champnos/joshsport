@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { Resend } from "resend";
 import { BookingValidationError, validateAndPrepareBooking } from "@/lib/booking-flow";
+import { createBookingConfirmationToken } from "@/lib/booking-confirmation";
 import { normalizeVoucherCode } from "@/lib/vouchers";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -160,27 +161,18 @@ function metadataMatchesBooking(
 
 async function incrementVoucherUsage(voucherCode: string) {
   const normalizedCode = normalizeVoucherCode(voucherCode);
-  if (!normalizedCode) return;
+  if (!normalizedCode) return true;
 
-  const { data: voucher, error: voucherError } = await supabaseAdmin
-    .from("vouchers")
-    .select("id, uses_count")
-    .eq("code", normalizedCode)
-    .maybeSingle();
-
-  if (voucherError || !voucher) {
-    if (voucherError) console.error("Voucher usage lookup failed:", voucherError);
-    return;
-  }
-
-  const { error } = await supabaseAdmin
-    .from("vouchers")
-    .update({ uses_count: (voucher.uses_count ?? 0) + 1 })
-    .eq("id", voucher.id);
+  const { data, error } = await supabaseAdmin.rpc("increment_voucher_usage", {
+    voucher_code_input: normalizedCode,
+  });
 
   if (error) {
     console.error("Voucher usage increment failed:", error);
+    return false;
   }
+
+  return data === true;
 }
 
 function isStripeLiveModeExpected() {
@@ -246,12 +238,23 @@ export async function POST(request: Request) {
       ) {
         return NextResponse.json({ error: "This payment has already been used for another booking." }, { status: 409 });
       }
-      return NextResponse.json({ id: existingBooking.id, status: existingBooking.status }, { status: 200 });
+      return NextResponse.json(
+        {
+          id: existingBooking.id,
+          status: existingBooking.status,
+          confirmation_token: createBookingConfirmationToken(existingBooking.id),
+        },
+        { status: 200 },
+      );
     }
 
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
       voucher_code: preparedBooking.normalizedBooking.voucher_code || null,
+      voucher_discount_percentage: preparedBooking.discountPercentage || null,
+      base_amount_pence: preparedBooking.baseAmountInPence,
+      discount_amount_pence: preparedBooking.discountAmountInPence,
+      final_amount_pence: preparedBooking.amountInPence,
       payment_intent_id: paymentIntentId,
       status: "confirmed",
     };
@@ -265,19 +268,42 @@ export async function POST(request: Request) {
           .eq("payment_intent_id", paymentIntentId)
           .maybeSingle();
         if (duplicateBooking) {
-          return NextResponse.json({ id: duplicateBooking.id, status: duplicateBooking.status }, { status: 200 });
+          return NextResponse.json(
+            {
+              id: duplicateBooking.id,
+              status: duplicateBooking.status,
+              confirmation_token: createBookingConfirmationToken(duplicateBooking.id),
+            },
+            { status: 200 },
+          );
         }
       }
       throw error;
     }
-
     if (preparedBooking.normalizedBooking.voucher_code) {
-      await incrementVoucherUsage(preparedBooking.normalizedBooking.voucher_code);
+      const incremented = await incrementVoucherUsage(preparedBooking.normalizedBooking.voucher_code);
+      if (!incremented) {
+        console.warn("Voucher usage was not incremented after booking insert", {
+          bookingId: data.id,
+          voucherCode: preparedBooking.normalizedBooking.voucher_code,
+        });
+      }
     }
 
-    await sendBookingEmails(preparedBooking.normalizedBooking);
+    const confirmationToken = createBookingConfirmationToken(data.id);
+    try {
+      await sendBookingEmails(preparedBooking.normalizedBooking);
+    } catch (emailError) {
+      console.error("Booking email dispatch failed:", emailError);
+    }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(
+      {
+        ...data,
+        confirmation_token: confirmationToken,
+      },
+      { status: 201 },
+    );
   } catch (err) {
     if (err instanceof BookingValidationError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

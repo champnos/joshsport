@@ -36,6 +36,10 @@ export interface Booking {
   injury_previous: boolean;
   injury_previous_notes: string;
   voucher_code?: string | null;
+  voucher_discount_percentage?: number | null;
+  base_amount_pence?: number | null;
+  discount_amount_pence?: number | null;
+  final_amount_pence?: number | null;
   status: "pending" | "confirmed" | "completed" | "cancelled";
   created_at?: string;
 }

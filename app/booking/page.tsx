@@ -453,6 +453,8 @@ function BookingInner() {
       });
       setVoucherCodeInput(payload.code);
       setVoucherMessage(`Voucher applied: ${payload.code} (${payload.discount_percentage}% off)`);
+      setPaymentClientSecret("");
+      setPaymentAttemptId("");
     } catch {
       setAppliedVoucher(null);
       setVoucherMessage("Unable to validate voucher right now.");
@@ -465,6 +467,9 @@ function BookingInner() {
     setAppliedVoucher(null);
     setVoucherCodeInput("");
     setVoucherMessage("");
+    setError("");
+    setPaymentClientSecret("");
+    setPaymentAttemptId("");
   };
 
   const handlePayment = async () => {
@@ -562,11 +567,11 @@ function BookingInner() {
       }
 
       const successParams = new URLSearchParams();
-      if (appliedVoucher) {
-        successParams.set("voucher", appliedVoucher.code);
-        successParams.set("original", String(selectedPricePence));
-        successParams.set("discount", String(voucherDiscountPence));
-        successParams.set("final", String(finalPricePence));
+      if (bookingData?.id) {
+        successParams.set("booking_id", bookingData.id);
+      }
+      if (bookingData?.confirmation_token) {
+        successParams.set("confirmation_token", bookingData.confirmation_token);
       }
       window.location.assign(`/booking-success${successParams.toString() ? `?${successParams.toString()}` : ""}`);
     } catch (err) {
@@ -1085,20 +1090,25 @@ function BookingInner() {
                 </div>
               )}
               <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-                <label className="block text-sm font-semibold text-brand-blue">Voucher code</label>
+                <label htmlFor="voucher-code" className="block text-sm font-semibold text-brand-blue">Voucher code</label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
+                    id="voucher-code"
                     type="text"
                     value={voucherCodeInput}
                     onChange={(event) => {
                       setVoucherCodeInput(event.target.value.toUpperCase());
                       if (appliedVoucher && event.target.value.toUpperCase() !== appliedVoucher.code) {
                         setAppliedVoucher(null);
+                        setError("");
+                        setPaymentClientSecret("");
+                        setPaymentAttemptId("");
                       }
                       setVoucherMessage("");
                     }}
                     placeholder="SUMMER20"
                     disabled={Boolean(paymentClientSecret)}
+                    aria-describedby={voucherMessage ? "voucher-code-message" : undefined}
                     className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500 disabled:opacity-60"
                   />
                   {!appliedVoucher ? (
@@ -1122,7 +1132,7 @@ function BookingInner() {
                   )}
                 </div>
                 {voucherMessage && (
-                  <p className={`text-xs ${appliedVoucher ? "text-green-700" : "text-red-600"}`}>{voucherMessage}</p>
+                  <p id="voucher-code-message" className={`text-xs ${appliedVoucher ? "text-green-700" : "text-red-600"}`}>{voucherMessage}</p>
                 )}
               </div>
               <hr className="border-brand-blue/10" />

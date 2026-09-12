@@ -66,36 +66,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-      if (booking.status === "confirmed") {
-        return NextResponse.json({ received: true });
-      }
+    if (booking.status === "confirmed") {
+      return NextResponse.json({ received: true });
+    }
 
-      const { error } = await supabaseAdmin.from("bookings").update({ status: "confirmed" }).eq("id", booking.id);
-      if (error) {
-        console.error("Failed to confirm booking from webhook:", error);
-        return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
-      }
-
-      if (booking.voucher_code) {
-        const { data: voucher, error: voucherLookupError } = await supabaseAdmin
-          .from("vouchers")
-          .select("id, uses_count")
-          .eq("code", booking.voucher_code)
-          .maybeSingle();
-
-        if (voucherLookupError) {
-          console.error("Failed to lookup voucher during webhook confirm:", voucherLookupError);
-        } else if (voucher) {
-          const { error: voucherUpdateError } = await supabaseAdmin
-            .from("vouchers")
-            .update({ uses_count: (voucher.uses_count ?? 0) + 1 })
-            .eq("id", voucher.id);
-
-          if (voucherUpdateError) {
-            console.error("Failed to increment voucher usage during webhook confirm:", voucherUpdateError);
-          }
-        }
-      }
+    const { error } = await supabaseAdmin.from("bookings").update({ status: "confirmed" }).eq("id", booking.id);
+    if (error) {
+      console.error("Failed to confirm booking from webhook:", error);
+      return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
+    }
 
     console.log("Booking confirmed from charge.succeeded", { bookingId: booking.id, payment_intent: charge.payment_intent });
     return NextResponse.json({ received: true });

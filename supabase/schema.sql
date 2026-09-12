@@ -32,6 +32,10 @@ create table if not exists bookings (
   injury_previous boolean default false,
   injury_previous_notes text,
   voucher_code text,
+  voucher_discount_percentage integer,
+  base_amount_pence integer,
+  discount_amount_pence integer,
+  final_amount_pence integer,
   payment_intent_id text unique,
   status text default 'pending',
   created_at timestamptz default now()
@@ -47,6 +51,34 @@ create table if not exists vouchers (
   uses_count integer not null default 0 check (uses_count >= 0),
   created_at timestamptz not null default now()
 );
+
+create or replace function increment_voucher_usage(voucher_code_input text)
+returns boolean
+language plpgsql
+as $$
+declare
+  updated_rows integer;
+begin
+  update vouchers
+  set uses_count = uses_count + 1
+  where code = voucher_code_input
+    and active = true
+    and (expires_at is null or expires_at > now())
+    and (max_uses is null or uses_count < max_uses);
+
+  get diagnostics updated_rows = row_count;
+  return updated_rows > 0;
+end;
+$$;
+
+create or replace function decrement_voucher_usage(voucher_code_input text)
+returns void
+language sql
+as $$
+  update vouchers
+  set uses_count = greatest(uses_count - 1, 0)
+  where code = voucher_code_input;
+$$;
 
 create table if not exists working_dates (
   date text primary key,

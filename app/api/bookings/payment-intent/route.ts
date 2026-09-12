@@ -23,6 +23,8 @@ export async function POST(request: Request) {
       client_email: preparedBooking.normalizedBooking.client_email,
       client_phone: preparedBooking.normalizedBooking.client_phone,
       amount: preparedBooking.amountInPence,
+      base_amount_pence: preparedBooking.baseAmountInPence,
+      discount_amount_pence: preparedBooking.discountAmountInPence,
       voucher_code: preparedBooking.normalizedBooking.voucher_code,
       discount_percentage: preparedBooking.discountPercentage,
       payment_attempt_id: paymentAttemptId,

@@ -1,18 +1,56 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+interface BookingConfirmationSummary {
+  voucher_code: string | null;
+  base_amount_pence: number | null;
+  discount_amount_pence: number | null;
+  final_amount_pence: number | null;
+}
+
 function BookingSuccessInner() {
   const searchParams = useSearchParams();
-  const voucherCode = searchParams.get("voucher") || "";
-  const original = Number.parseInt(searchParams.get("original") || "", 10);
-  const discount = Number.parseInt(searchParams.get("discount") || "", 10);
-  const finalAmount = Number.parseInt(searchParams.get("final") || "", 10);
-  const hasDiscountDetails = voucherCode && Number.isFinite(original) && Number.isFinite(discount) && Number.isFinite(finalAmount);
+  const bookingId = searchParams.get("booking_id") || "";
+  const confirmationToken = searchParams.get("confirmation_token") || "";
+  const [summary, setSummary] = useState<BookingConfirmationSummary | null>(null);
+
+  useEffect(() => {
+    if (!bookingId || !confirmationToken) return;
+    let cancelled = false;
+
+    const loadSummary = async () => {
+      try {
+        const response = await fetch(
+          `/api/bookings/confirmation/${bookingId}?token=${encodeURIComponent(confirmationToken)}`,
+        );
+        if (!response.ok) return;
+        const payload = (await response.json()) as BookingConfirmationSummary;
+        if (!cancelled) setSummary(payload);
+      } catch {
+        if (!cancelled) setSummary(null);
+      }
+    };
+
+    void loadSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingId, confirmationToken]);
 
   const formatPrice = (value: number) => (value / 100).toFixed(2);
+  const hasDiscountDetails = Boolean(
+    summary?.voucher_code &&
+    typeof summary.base_amount_pence === "number" &&
+    typeof summary.discount_amount_pence === "number" &&
+    typeof summary.final_amount_pence === "number" &&
+    summary.discount_amount_pence > 0,
+  );
+  const baseAmount = typeof summary?.base_amount_pence === "number" ? summary.base_amount_pence : 0;
+  const discountAmount = typeof summary?.discount_amount_pence === "number" ? summary.discount_amount_pence : 0;
+  const finalAmount = typeof summary?.final_amount_pence === "number" ? summary.final_amount_pence : 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -55,11 +93,11 @@ function BookingSuccessInner() {
             <div className="space-y-2 text-sm text-gray-700">
               <div className="flex justify-between">
                 <span>Original price</span>
-                <span>£{formatPrice(original)}</span>
+                <span>£{formatPrice(baseAmount)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Voucher ({voucherCode})</span>
-                <span>-£{formatPrice(discount)}</span>
+                <span>Voucher ({summary.voucher_code})</span>
+                <span>-£{formatPrice(discountAmount)}</span>
               </div>
               <div className="flex justify-between font-bold text-brand-blue border-t border-gray-100 pt-2">
                 <span>Final price paid</span>

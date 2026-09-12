@@ -28,6 +28,17 @@ function toDateTimeLocal(value: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function getVoucherStatus(voucher: Voucher) {
+  if (!voucher.active) return { label: "Inactive", classes: "bg-red-100 text-red-800" };
+  if (voucher.expires_at && new Date(voucher.expires_at).getTime() < Date.now()) {
+    return { label: "Expired", classes: "bg-gray-100 text-gray-700" };
+  }
+  if (voucher.max_uses !== null && voucher.uses_count >= voucher.max_uses) {
+    return { label: "Used up", classes: "bg-amber-100 text-amber-800" };
+  }
+  return { label: "Active", classes: "bg-green-100 text-green-800" };
+}
+
 export default function AdminVouchersPage() {
   const [adminToken, setAdminToken] = useState("");
   const [isAuthed, setIsAuthed] = useState(false);
@@ -110,7 +121,6 @@ export default function AdminVouchersPage() {
 
   useEffect(() => {
     if (!isAuthed) return;
-    localStorage.setItem("adminToken", adminToken);
     void loadVouchers();
   }, [adminToken, isAuthed, loadVouchers]);
 
@@ -130,6 +140,7 @@ export default function AdminVouchersPage() {
     if (response.ok) {
       setIsAuthed(true);
       setAuthError("");
+      localStorage.setItem("adminToken", adminToken);
       return;
     }
 
@@ -204,6 +215,12 @@ export default function AdminVouchersPage() {
         body: JSON.stringify({ active: !voucher.active }),
       });
       const data = await response.json().catch(() => null);
+      if (response.status === 401) {
+        localStorage.removeItem("adminToken");
+        setIsAuthed(false);
+        setAuthError("Your admin session expired. Please log in again.");
+        return;
+      }
       if (!response.ok) {
         setError(data?.error ?? "Unable to update voucher.");
         return;
@@ -242,7 +259,11 @@ export default function AdminVouchersPage() {
       <div className="max-w-md mx-auto py-16 px-4">
         <h1 className="text-2xl font-bold text-brand-blue mb-4">Admin Login</h1>
         <form onSubmit={handleLogin} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <label htmlFor="voucher-admin-password" className="block text-sm font-semibold text-brand-blue mb-1">
+            Admin password
+          </label>
           <input
+            id="voucher-admin-password"
             type="password"
             value={adminToken}
             onChange={(event) => setAdminToken(event.target.value)}
@@ -282,8 +303,9 @@ export default function AdminVouchersPage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-semibold text-brand-blue mb-1">Code</label>
+              <label htmlFor="voucher-code-input" className="block text-sm font-semibold text-brand-blue mb-1">Code</label>
               <input
+                id="voucher-code-input"
                 type="text"
                 value={form.code}
                 onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))}
@@ -292,8 +314,9 @@ export default function AdminVouchersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-brand-blue mb-1">Discount %</label>
+              <label htmlFor="voucher-discount-input" className="block text-sm font-semibold text-brand-blue mb-1">Discount %</label>
               <input
+                id="voucher-discount-input"
                 type="number"
                 min={0}
                 max={100}
@@ -304,8 +327,9 @@ export default function AdminVouchersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-brand-blue mb-1">Expiry (optional)</label>
+              <label htmlFor="voucher-expiry-input" className="block text-sm font-semibold text-brand-blue mb-1">Expiry (optional)</label>
               <input
+                id="voucher-expiry-input"
                 type="datetime-local"
                 value={form.expires_at}
                 onChange={(event) => setForm((prev) => ({ ...prev, expires_at: event.target.value }))}
@@ -313,8 +337,9 @@ export default function AdminVouchersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-brand-blue mb-1">Max Uses (optional)</label>
+              <label htmlFor="voucher-max-uses-input" className="block text-sm font-semibold text-brand-blue mb-1">Max Uses (optional)</label>
               <input
+                id="voucher-max-uses-input"
                 type="number"
                 min={1}
                 value={form.max_uses}
@@ -325,8 +350,9 @@ export default function AdminVouchersPage() {
             </div>
           </div>
 
-          <label className="flex items-center gap-3 text-sm text-gray-700">
+          <label htmlFor="voucher-active-input" className="flex items-center gap-3 text-sm text-gray-700">
             <input
+              id="voucher-active-input"
               type="checkbox"
               checked={form.active}
               onChange={(event) => setForm((prev) => ({ ...prev, active: event.target.checked }))}
@@ -355,47 +381,50 @@ export default function AdminVouchersPage() {
 
           {!loading && vouchers.length > 0 && (
             <div className="space-y-3">
-              {vouchers.map((voucher) => (
-                <div key={voucher.id} className="rounded-xl border border-gray-200 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <p className="font-bold text-brand-blue">{voucher.code}</p>
-                      <span className="text-sm font-semibold text-brand-gold">{voucher.discount_percentage}% off</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${voucher.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                        {voucher.active ? "Active" : "Inactive"}
-                      </span>
+              {vouchers.map((voucher) => {
+                const status = getVoucherStatus(voucher);
+                return (
+                  <div key={voucher.id} className="rounded-xl border border-gray-200 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <p className="font-bold text-brand-blue">{voucher.code}</p>
+                        <span className="text-sm font-semibold text-brand-gold">{voucher.discount_percentage}% off</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${status.classes}`}>
+                          {status.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Uses: {voucher.uses_count}{voucher.max_uses !== null ? ` / ${voucher.max_uses}` : ""} ·
+                        {voucher.expires_at ? ` Expires ${new Date(voucher.expires_at).toLocaleString()}` : " No expiry"}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Uses: {voucher.uses_count}{voucher.max_uses !== null ? ` / ${voucher.max_uses}` : ""} ·
-                      {voucher.expires_at ? ` Expires ${new Date(voucher.expires_at).toLocaleString()}` : " No expiry"}
-                    </p>
-                  </div>
 
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(voucher)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void toggleActive(voucher)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
-                    >
-                      {voucher.active ? "Deactivate" : "Activate"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(voucher.id)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(voucher)}
+                        className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void toggleActive(voucher)}
+                        className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue"
+                      >
+                        {voucher.active ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(voucher.id)}
+                        className="text-xs px-3 py-1.5 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

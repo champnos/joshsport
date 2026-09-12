@@ -78,13 +78,17 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       .update(updates)
       .eq("id", params.id)
       .select("id, code, discount_percentage, active, expires_at, max_uses, uses_count, created_at")
-      .single();
+      .maybeSingle();
 
     if (error) {
       if (error.code === "23505") {
         return NextResponse.json({ error: "Voucher code already exists." }, { status: 409 });
       }
       throw error;
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: "Voucher not found." }, { status: 404 });
     }
 
     return NextResponse.json(data);
@@ -98,8 +102,11 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
 
-    const { error } = await supabaseAdmin.from("vouchers").delete().eq("id", params.id);
+    const { data, error } = await supabaseAdmin.from("vouchers").delete().eq("id", params.id).select("id").maybeSingle();
     if (error) throw error;
+    if (!data) {
+      return NextResponse.json({ error: "Voucher not found." }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
