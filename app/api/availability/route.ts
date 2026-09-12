@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ slots: [], booked_slots: [] });
     }
 
-    // Get existing bookings for that day (only confirmed and pending_payment block slots)
-    const { data: existingBookings } = await supabase
+    // Get existing bookings for that day using admin client (confirmed and pending_payment block slots)
+    const { data: existingBookings } = await supabaseAdmin
       .from("bookings")
       .select("start_time, duration_mins")
       .eq("date", date)
