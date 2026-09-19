@@ -24,26 +24,28 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-gray-950 border-b border-white/10">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <header className="fixed inset-x-0 top-0 z-50 bg-slate-800 border-b-4 border-brand-gold shadow-lg">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center">
           <Image
             src="/logo.png"
             alt="MMT Logo"
-            width={160}
-            height={64}
-            className="h-16 w-auto object-contain"
+            width={200}
+            height={80}
+            className="h-20 w-auto object-contain"
             priority
           />
         </Link>
 
-        <div className="hidden md:flex items-center gap-10 text-sm text-white/80">
+        <div className="hidden md:flex items-center gap-12 text-sm">
           {navLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className={`hover:text-brand-gold transition-colors ${
-                isActive(l.href) ? "font-bold text-white" : "font-medium tracking-wide"
+              className={`transition-colors ${
+                isActive(l.href)
+                  ? "font-bold text-brand-gold border-b-2 border-brand-gold pb-1"
+                  : "font-medium text-white/80 hover:text-brand-gold"
               }`}
             >
               {l.label}
@@ -61,13 +63,13 @@ export default function Navbar() {
       </nav>
 
       {open && (
-        <div className="md:hidden bg-[#011a42] border-t border-white/15 px-4 pb-4 space-y-3">
+        <div className="md:hidden bg-slate-700 border-t border-brand-gold/20 px-4 pb-4 space-y-3">
           {navLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               className={`block text-white hover:text-brand-gold py-2 ${
-                isActive(l.href) ? "font-bold" : "font-medium"
+                isActive(l.href) ? "font-bold text-brand-gold" : "font-medium"
               }`}
               onClick={() => setOpen(false)}
             >
