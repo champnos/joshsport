@@ -7,10 +7,10 @@ interface RouteContext {
   params: { id: string };
 }
 
-function parseDiscountPercentage(value: unknown) {
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) return null;
-  return parsed;
+function parseDiscountAmountPence(value: unknown) {
+  const parsed = Number.parseFloat(String(value));
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.round(parsed * 100);
 }
 
 function parseMaxUses(value: unknown) {
@@ -41,11 +41,11 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     }
 
     if (body.discount_percentage !== undefined) {
-      const discountPercentage = parseDiscountPercentage(body.discount_percentage);
-      if (discountPercentage === null) {
-        return NextResponse.json({ error: "Discount must be an integer between 0 and 100." }, { status: 400 });
+      const discountAmountPence = parseDiscountAmountPence(body.discount_percentage);
+      if (discountAmountPence === null) {
+        return NextResponse.json({ error: "Discount amount must be a valid number in GBP." }, { status: 400 });
       }
-      updates.discount_percentage = discountPercentage;
+      updates.discount_percentage = discountAmountPence;
     }
 
     if (body.active !== undefined) {

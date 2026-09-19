@@ -3,10 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { normalizeVoucherCode } from "@/lib/vouchers";
 
-function parseDiscountPercentage(value: unknown) {
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) return null;
-  return parsed;
+function parseDiscountAmountPence(value: unknown) {
+  const parsed = Number.parseFloat(String(value));
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.round(parsed * 100);
 }
 
 function parseMaxUses(value: unknown) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const code = normalizeVoucherCode(body.code);
-    const discountPercentage = parseDiscountPercentage(body.discount_percentage);
+    const discountAmountPence = parseDiscountAmountPence(body.discount_percentage);
     const active = typeof body.active === "boolean" ? body.active : true;
     const maxUses = parseMaxUses(body.max_uses);
     const expiresAt = parseExpiresAt(body.expires_at);
@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
     if (!code) {
       return NextResponse.json({ error: "Voucher code is required." }, { status: 400 });
     }
-    if (discountPercentage === null) {
-      return NextResponse.json({ error: "Discount must be an integer between 0 and 100." }, { status: 400 });
+    if (discountAmountPence === null) {
+      return NextResponse.json({ error: "Discount amount must be a valid number in GBP." }, { status: 400 });
     }
     if (expiresAt === "invalid") {
       return NextResponse.json({ error: "Expiry date is invalid." }, { status: 400 });
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const payload = {
       code,
-      discount_percentage: discountPercentage,
+      discount_percentage: discountAmountPence,
       active,
       expires_at: expiresAt,
       max_uses: maxUses,

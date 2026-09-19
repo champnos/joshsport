@@ -33,7 +33,7 @@ export interface PreparedBooking {
   distanceCheck: DistanceCheckResult;
   baseAmountInPence: number;
   discountAmountInPence: number;
-  discountPercentage: number;
+  voucherDiscountAmountPence: number;
   amountInPence: number;
 }
 
@@ -169,9 +169,7 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
 
   if (!distanceCheck.withinRange) {
     throw new BookingValidationError(
-      distanceCheck.maxTravelDistanceMiles === 0
-        ? "Bookings are currently limited to the therapist postcode only."
-        : `This postcode is ${distanceCheck.distanceMiles.toFixed(1)} miles away, which is outside the ${distanceCheck.maxTravelDistanceMiles}-mile service area.`,
+      "Unfortunately this postcode is out of the service zone, however, if this is a mistake and you do live in the Bristol and Bath area, please contact us directly through email.",
       400,
     );
   }
@@ -192,12 +190,12 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
     throw new BookingValidationError("Selected treatment duration is not available.", 400);
   }
 
-  let discountPercentage = 0;
+  let voucherDiscountAmountPence = 0;
   let voucherCode = "";
   try {
     const voucherValidation = await validateOptionalVoucher((body as Record<string, unknown>).voucher_code);
     if (voucherValidation) {
-      discountPercentage = voucherValidation.discountPercentage;
+      voucherDiscountAmountPence = voucherValidation.discountAmountPence;
       voucherCode = voucherValidation.code;
     }
   } catch (error) {
@@ -208,7 +206,7 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
   }
 
   const baseAmountInPence = Math.round(treatmentPrice * 100);
-  const discountAmountInPence = calculateDiscountAmount(baseAmountInPence, discountPercentage);
+  const discountAmountInPence = calculateDiscountAmount(baseAmountInPence, voucherDiscountAmountPence);
   const amountInPence = Math.max(baseAmountInPence - discountAmountInPence, 0);
 
   return {
@@ -222,7 +220,7 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
     distanceCheck,
     baseAmountInPence,
     discountAmountInPence,
-    discountPercentage,
+    voucherDiscountAmountPence,
     amountInPence,
   };
 }

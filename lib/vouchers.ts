@@ -38,7 +38,7 @@ function getVoucherInvalidMessage(voucher: VoucherRecord): string | null {
     return "Voucher code has reached its usage limit.";
   }
 
-  if (!Number.isInteger(voucher.discount_percentage) || voucher.discount_percentage < 0 || voucher.discount_percentage > 100) {
+  if (!Number.isInteger(voucher.discount_percentage) || voucher.discount_percentage < 0) {
     return "Voucher code is invalid.";
   }
 
@@ -69,7 +69,7 @@ export async function validateVoucherOrThrow(codeValue: unknown) {
   return {
     voucher,
     code: voucher.code,
-    discountPercentage: voucher.discount_percentage,
+    discountAmountPence: voucher.discount_percentage,
   };
 }
 
@@ -79,7 +79,7 @@ export async function validateOptionalVoucher(codeValue: unknown) {
   return validateVoucherOrThrow(normalized);
 }
 
-export function calculateDiscountAmount(baseAmountInPence: number, discountPercentage: number) {
-  if (discountPercentage <= 0) return 0;
-  return Math.round((baseAmountInPence * discountPercentage) / 100);
+export function calculateDiscountAmount(baseAmountInPence: number, discountAmountPence: number) {
+  if (discountAmountPence <= 0) return 0;
+  return Math.min(baseAmountInPence, discountAmountPence);
 }

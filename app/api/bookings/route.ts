@@ -124,7 +124,7 @@ export async function POST(request: Request) {
     const insertPayload = {
       ...preparedBooking.normalizedBooking,
       voucher_code: preparedBooking.normalizedBooking.voucher_code || null,
-      voucher_discount_percentage: preparedBooking.discountPercentage || null,
+      voucher_discount_percentage: preparedBooking.voucherDiscountAmountPence || null,
       base_amount_pence: preparedBooking.baseAmountInPence,
       discount_amount_pence: preparedBooking.discountAmountInPence,
       final_amount_pence: preparedBooking.amountInPence,
