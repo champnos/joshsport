@@ -24,28 +24,30 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-slate-800 border-b-4 border-brand-gold shadow-lg">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/logo.png"
-            alt="MMT Logo"
-            width={200}
-            height={80}
-            className="h-20 w-auto object-contain"
-            priority
-          />
+    <header className="fixed inset-x-0 top-0 z-50 bg-slate-900 border-b-2 border-brand-gold">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center flex-shrink-0">
+          <div className="drop-shadow-lg">
+            <Image
+              src="/logo.png"
+              alt="MMT Logo"
+              width={280}
+              height={112}
+              className="h-28 w-auto object-contain"
+              priority
+            />
+          </div>
         </Link>
 
-        <div className="hidden md:flex items-center gap-12 text-sm">
+        <div className="hidden md:flex items-center gap-12">
           {navLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className={`transition-colors ${
+              className={`text-sm font-medium transition-colors ${
                 isActive(l.href)
-                  ? "font-bold text-brand-gold border-b-2 border-brand-gold pb-1"
-                  : "font-medium text-white/80 hover:text-brand-gold"
+                  ? "text-brand-gold border-b-2 border-brand-gold pb-1"
+                  : "text-white/70 hover:text-white"
               }`}
             >
               {l.label}
@@ -63,13 +65,15 @@ export default function Navbar() {
       </nav>
 
       {open && (
-        <div className="md:hidden bg-slate-700 border-t border-brand-gold/20 px-4 pb-4 space-y-3">
+        <div className="md:hidden bg-slate-800 border-t border-brand-gold px-4 pb-4 space-y-2">
           {navLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className={`block text-white hover:text-brand-gold py-2 ${
-                isActive(l.href) ? "font-bold text-brand-gold" : "font-medium"
+              className={`block text-sm py-2 transition-colors ${
+                isActive(l.href)
+                  ? "font-bold text-brand-gold"
+                  : "text-white/70 hover:text-white"
               }`}
               onClick={() => setOpen(false)}
             >
