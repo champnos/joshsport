@@ -37,23 +37,15 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [heroRes, aboutRes, treatmentsRes] = await Promise.all([
+        const [heroRes, treatmentsRes] = await Promise.all([
           fetch("/api/hero-image"),
-          fetch("/api/about-image"),
           fetch("/api/treatments"),
         ]);
 
         if (heroRes.ok) {
           const heroData = await heroRes.json();
           setHeroImage(heroData.image_url || null);
-        }
-
-        if (aboutRes.ok) {
-          const aboutData = await aboutRes.json();
-          setAboutImage(aboutData.image_url || null);
-        } else {
-          // Fallback: use heroImage for about if separate endpoint not available
-          setAboutImage(null);
+          setAboutImage(heroData.image_url || null); // Use same hero image for about section
         }
 
         if (treatmentsRes.ok) {
