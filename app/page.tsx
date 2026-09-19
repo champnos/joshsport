@@ -110,7 +110,7 @@ export default function Home() {
               <img src={heroImage} alt="Josh Maggs" className="w-full h-full object-cover" />
             ) : (
               <div className="text-center text-white/60 text-sm">
-                <p>[ Josh's Photo ]</p>
+                <p>[Josh&apos;s Photo]</p>
                 <p className="text-xs text-white/40 mt-2">Upload in admin panel</p>
               </div>
             )}
@@ -127,7 +127,7 @@ export default function Home() {
               <img src={aboutImage} alt="About Josh Maggs" className="w-full h-full object-cover" />
             ) : (
               <div className="text-center text-gray-400 text-sm">
-                <p>[ About Josh ]</p>
+                <p>[About Josh]</p>
                 <p className="text-xs text-gray-300 mt-2">Upload in admin</p>
               </div>
             )}
