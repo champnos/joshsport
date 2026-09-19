@@ -33,7 +33,7 @@ interface DistanceCheckResponse {
 interface VoucherValidationResponse {
   valid: boolean;
   code?: string;
-  discount_percentage?: number;
+  discount_amount_pence?: number;
   error?: string;
 }
 
@@ -68,7 +68,7 @@ function formatPriceFromPence(value: number) {
   return (value / 100).toFixed(2);
 }
 
-const STEPS = ["Treatment", "Date & Time", "Your Details", "Emergency Contact", "Medical History", "Injury History", "Confirm & Pay"];
+const STEPS = ["Treatment", "Date & Time", "Your Details", "Medical History", "Injury History", "Additional Information", "Confirm & Pay"];
 
 function BookingInner() {
   const searchParams = useSearchParams();
@@ -80,7 +80,6 @@ function BookingInner() {
   const [duration, setDuration] = useState<number | null>(null);
 
   const [bookingWindowDays, setBookingWindowDays] = useState(30);
-  const [maxTravelDistanceMiles, setMaxTravelDistanceMiles] = useState(10);
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [date, setDate] = useState("");
@@ -98,10 +97,6 @@ function BookingInner() {
   const [distanceMessage, setDistanceMessage] = useState("");
   const [checkingDistance, setCheckingDistance] = useState(false);
 
-  const [emergencyName, setEmergencyName] = useState("");
-  const [emergencyRelationship, setEmergencyRelationship] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
-
   const [medicalConditions, setMedicalConditions] = useState<string[]>([]);
   const [medicalNotes, setMedicalNotes] = useState("");
 
@@ -109,16 +104,18 @@ function BookingInner() {
   const [injuryRecentNotes, setInjuryRecentNotes] = useState("");
   const [injuryPrevious, setInjuryPrevious] = useState<boolean | null>(null);
   const [injuryPreviousNotes, setInjuryPreviousNotes] = useState("");
+  const [additionalInfo, setAdditionalInfo] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [voucherCodeInput, setVoucherCodeInput] = useState("");
-  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discountPercentage: number } | null>(null);
+  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discountAmountPence: number } | null>(null);
   const [validatingVoucher, setValidatingVoucher] = useState(false);
   const [voucherMessage, setVoucherMessage] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const distanceCheckRequestRef = useRef(0);
+  const outOfRangeAlertedPostcodeRef = useRef("");
   const previousFocusedElementRef = useRef<HTMLElement | null>(null);
   const termsDialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -144,11 +141,6 @@ function BookingInner() {
         if (settingsRes.ok) {
           const settingsData = await settingsRes.json();
           setBookingWindowDays(settingsData.booking_window_days || 30);
-          setMaxTravelDistanceMiles(
-            typeof settingsData.max_travel_distance_miles === "number"
-              ? settingsData.max_travel_distance_miles
-              : 10,
-          );
         }
 
         // Load working dates
@@ -174,9 +166,7 @@ function BookingInner() {
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
   const selectedPrice = selectedTreatment?.durations.find((d) => d.mins === duration)?.price || 0;
   const selectedPricePence = Math.round(selectedPrice * 100);
-  const voucherDiscountPence = appliedVoucher
-    ? Math.round((selectedPricePence * appliedVoucher.discountPercentage) / 100)
-    : 0;
+  const voucherDiscountPence = appliedVoucher ? Math.min(selectedPricePence, appliedVoucher.discountAmountPence) : 0;
   const finalPricePence = Math.max(selectedPricePence - voucherDiscountPence, 0);
 
   const buildBookingPayload = () => ({
@@ -191,11 +181,13 @@ function BookingInner() {
     client_phone: clientPhone,
     client_address: clientAddress,
     client_postcode: distanceCheck?.normalizedPostcode || normalizePostcode(clientPostcode),
-    emergency_name: emergencyName,
-    emergency_relationship: emergencyRelationship,
-    emergency_phone: emergencyPhone,
+    emergency_name: "",
+    emergency_relationship: "",
+    emergency_phone: "",
     medical_conditions: medicalConditions,
-    medical_notes: medicalNotes,
+    medical_notes: [medicalNotes.trim(), additionalInfo.trim() ? `Additional information: ${additionalInfo.trim()}` : ""]
+      .filter(Boolean)
+      .join("\n\n"),
     injury_recent: injuryRecent ?? false,
     injury_recent_notes: injuryRecentNotes,
     injury_previous: injuryPrevious ?? false,
@@ -275,13 +267,18 @@ function BookingInner() {
 
         const result = payload as DistanceCheckResponse;
         setDistanceCheck(result);
-        setDistanceMessage(
-          result.withinRange
-            ? `Within service area — approximately ${result.distanceMiles.toFixed(1)} miles away.`
-            : result.maxTravelDistanceMiles === 0
-              ? "Sorry, bookings are currently limited to the therapist postcode only."
-              : `Sorry, this postcode is ${result.distanceMiles.toFixed(1)} miles away, outside the ${result.maxTravelDistanceMiles}-mile service area.`,
-        );
+        if (result.withinRange) {
+          setDistanceMessage("This postcode is within service area");
+          outOfRangeAlertedPostcodeRef.current = "";
+        } else {
+          setDistanceMessage("Unfortunately this postcode is out of the service zone.");
+          if (outOfRangeAlertedPostcodeRef.current !== result.normalizedPostcode) {
+            outOfRangeAlertedPostcodeRef.current = result.normalizedPostcode;
+            window.alert(
+              "Unfortunately this postcode is out of the service zone, however, if this is a mistake and you do live in the Bristol and Bath area, please contact us directly through email.",
+            );
+          }
+        }
       } catch (err) {
         if ((err as Error).name !== "AbortError" && !cancelled && requestId === distanceCheckRequestRef.current) {
           setDistanceCheck(null);
@@ -388,7 +385,7 @@ function BookingInner() {
       });
       const payload = (await response.json()) as VoucherValidationResponse;
 
-      if (!response.ok || !payload.valid || !payload.code || payload.discount_percentage === undefined) {
+      if (!response.ok || !payload.valid || !payload.code || payload.discount_amount_pence === undefined) {
         setAppliedVoucher(null);
         setVoucherMessage(payload.error ?? "Voucher code is not valid.");
         return;
@@ -396,10 +393,10 @@ function BookingInner() {
 
       setAppliedVoucher({
         code: payload.code,
-        discountPercentage: payload.discount_percentage,
+        discountAmountPence: payload.discount_amount_pence,
       });
       setVoucherCodeInput(payload.code);
-      setVoucherMessage(`Voucher applied: ${payload.code} (${payload.discount_percentage}% off)`);
+      setVoucherMessage(`Voucher applied: ${payload.code} (£${formatPriceFromPence(payload.discount_amount_pence)} off)`);
     } catch {
       setAppliedVoucher(null);
       setVoucherMessage("Unable to validate voucher right now.");
@@ -707,10 +704,7 @@ function BookingInner() {
 
         {step === 3 && (
           <div>
-            <h2 className="text-2xl font-bold text-brand-blue mb-2">Your Details</h2>
-            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6">
-              You must be at least {MINIMUM_BOOKING_AGE} and within our {maxTravelDistanceMiles}-mile travel area to book. The massage visit is at your home/selected location, so please make sure all details are correct.
-            </p>
+            <h2 className="text-2xl font-bold text-brand-blue mb-6">Your Details</h2>
             <div className="space-y-4">
               {[
                 { label: "Full Name", value: clientName, setter: setClientName, type: "text", placeholder: "Your full name" },
@@ -727,6 +721,11 @@ function BookingInner() {
                     placeholder={placeholder}
                     className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                   />
+                  {label === "Home Address" && (
+                    <p className="mt-2 text-xs text-gray-700">
+                      The massage visit is at your home/selected location, so please make sure all details are correct
+                    </p>
+                  )}
                 </div>
               ))}
 
@@ -738,6 +737,7 @@ function BookingInner() {
                   onChange={(e) => setClientDob(e.target.value)}
                   className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
                 />
+                <p className="mt-2 text-xs text-gray-700">Massages are only available for those 18+</p>
                 {clientDob && (
                   <p className={`mt-2 text-xs ${ageValidation.isAdult ? "text-green-700" : "text-red-600"}`}>
                     {ageValidation.isAdult
@@ -757,9 +757,7 @@ function BookingInner() {
                   className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  {maxTravelDistanceMiles === 0
-                    ? "We are currently accepting bookings only within our therapist postcode."
-                    : `We currently travel up to ${maxTravelDistanceMiles} miles from our base location.`}
+                  We currently travel up to 13 miles covering the Bristol and Bath area
                 </p>
                 {checkingDistance && <p className="mt-2 text-xs text-gray-500">Checking travel distance…</p>}
                 {!checkingDistance && distanceMessage && (
@@ -796,42 +794,6 @@ function BookingInner() {
 
         {step === 4 && (
           <div>
-            <h2 className="text-2xl font-bold text-brand-blue mb-6">Emergency Contact</h2>
-            <div className="space-y-4">
-              {[
-                { label: "Contact Name", value: emergencyName, setter: setEmergencyName, placeholder: "Full name" },
-                { label: "Contact Relationship", value: emergencyRelationship, setter: setEmergencyRelationship, placeholder: "e.g. Partner, Parent" },
-                { label: "Contact Phone Number", value: emergencyPhone, setter: setEmergencyPhone, placeholder: "07..." },
-              ].map(({ label, value, setter, placeholder }) => (
-                <div key={label}>
-                  <label className="block text-sm font-semibold text-brand-blue mb-1">{label}</label>
-                  <input
-                    type="text"
-                    value={value}
-                    onChange={(e) => setter(e.target.value)}
-                    placeholder={placeholder}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="mt-8 flex justify-between">
-              <button onClick={() => setStep(3)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
-                <ChevronLeft className="h-4 w-4" /> Back
-              </button>
-              <button
-                onClick={() => setStep(5)}
-                disabled={!emergencyName || !emergencyPhone}
-                className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Next <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-2">Medical History</h2>
             <p className="text-sm text-gray-600 mb-6">Please tick if you have any of the following:</p>
             <div className="space-y-3">
@@ -860,11 +822,11 @@ function BookingInner() {
               </div>
             )}
             <div className="mt-8 flex justify-between">
-              <button onClick={() => setStep(4)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
+              <button onClick={() => setStep(3)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
                 <ChevronLeft className="h-4 w-4" /> Back
               </button>
               <button
-                onClick={() => setStep(6)}
+                onClick={() => setStep(5)}
                 disabled={medicalConditions.length === 0}
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -874,7 +836,7 @@ function BookingInner() {
           </div>
         )}
 
-        {step === 6 && (
+        {step === 5 && (
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-6">Injury History</h2>
             <div className="space-y-8">
@@ -934,13 +896,40 @@ function BookingInner() {
             </div>
 
             <div className="mt-8 flex justify-between">
+              <button onClick={() => setStep(4)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
+                <ChevronLeft className="h-4 w-4" /> Back
+              </button>
+              <button
+                onClick={() => setStep(6)}
+                disabled={injuryRecent === null || injuryPrevious === null}
+                className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 6 && (
+          <div>
+            <h2 className="text-2xl font-bold text-brand-blue mb-2">Additional Information</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Any further information that the Therapist may need to know prior to the booking (e.g. parking and travelling) please state here.
+            </p>
+            <textarea
+              value={additionalInfo}
+              onChange={(event) => setAdditionalInfo(event.target.value)}
+              rows={5}
+              placeholder="Optional: add access, parking or travel details..."
+              className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
+            />
+            <div className="mt-8 flex justify-between">
               <button onClick={() => setStep(5)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
                 <ChevronLeft className="h-4 w-4" /> Back
               </button>
               <button
                 onClick={() => setStep(7)}
-                disabled={injuryRecent === null || injuryPrevious === null}
-                className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90"
               >
                 Next <ChevronRight className="h-4 w-4" />
               </button>
@@ -1050,6 +1039,12 @@ function BookingInner() {
                   {clientAddress}, {distanceCheck?.normalizedPostcode || normalizePostcode(clientPostcode)}
                 </span>
               </div>
+              {additionalInfo.trim() && (
+                <div className="flex justify-between gap-4 text-sm">
+                  <span className="text-gray-600">Additional Info</span>
+                  <span className="font-semibold text-brand-blue text-right whitespace-pre-wrap">{additionalInfo}</span>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 space-y-4">

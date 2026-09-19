@@ -28,6 +28,10 @@ function toDateTimeLocal(value: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function formatPenceToPounds(valueInPence: number) {
+  return (valueInPence / 100).toFixed(2);
+}
+
 function getVoucherStatus(voucher: Voucher) {
   if (!voucher.active) return { label: "Inactive", classes: "bg-red-100 text-red-800" };
   if (voucher.expires_at && new Date(voucher.expires_at).getTime() < Date.now()) {
@@ -200,7 +204,7 @@ export default function AdminVouchersPage() {
     setEditingVoucherId(voucher.id);
     setForm({
       code: voucher.code,
-      discount_percentage: String(voucher.discount_percentage),
+      discount_percentage: formatPenceToPounds(voucher.discount_percentage),
       active: voucher.active,
       expires_at: toDateTimeLocal(voucher.expires_at),
       max_uses: voucher.max_uses === null ? "" : String(voucher.max_uses),
@@ -324,15 +328,15 @@ export default function AdminVouchersPage() {
               />
             </div>
             <div>
-              <label htmlFor="voucher-discount-input" className="block text-sm font-semibold text-brand-blue mb-1">Discount %</label>
+              <label htmlFor="voucher-discount-input" className="block text-sm font-semibold text-brand-blue mb-1">Discount (£ off)</label>
               <input
                 id="voucher-discount-input"
                 type="number"
                 min={0}
-                max={100}
+                step="0.01"
                 value={form.discount_percentage}
                 onChange={(event) => setForm((prev) => ({ ...prev, discount_percentage: event.target.value }))}
-                placeholder="20"
+                placeholder="10.00"
                 className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
               />
             </div>
@@ -398,7 +402,7 @@ export default function AdminVouchersPage() {
                     <div>
                       <div className="flex items-center gap-3 flex-wrap">
                         <p className="font-bold text-brand-blue">{voucher.code}</p>
-                        <span className="text-sm font-semibold text-brand-gold">{voucher.discount_percentage}% off</span>
+                        <span className="text-sm font-semibold text-brand-gold">£{formatPenceToPounds(voucher.discount_percentage)} off</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${status.classes}`}>
                           {status.label}
                         </span>

@@ -75,23 +75,43 @@ export default function Home() {
             backgroundSize: "28px 28px",
           }}
         />
-        <div className="mx-auto max-w-7xl py-24 w-full relative z-10">
-          <span className="inline-block text-xs font-bold uppercase tracking-widest text-brand-blue bg-brand-gold px-3 py-1 rounded-full mb-6">
-            Bristol &amp; Bath
-          </span>
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">JOSH MAGGS</h1>
-          <div className="mt-4 w-16 h-1 bg-brand-gold rounded-full" />
-          <p className="mt-6 text-xl font-medium text-brand-gold">Mobile Sports Massage Therapy</p>
-          <p className="mt-4 max-w-2xl text-lg text-white/75">
-            Professional sports massage, brought to you, at the comfort of your home.
-          </p>
-          <div className="mt-10">
-            <Link
-              href="/booking"
-              className="inline-block bg-brand-gold text-brand-blue font-bold px-8 py-4 rounded-lg text-lg hover:opacity-90 transition-opacity"
-            >
-              Book Now
-            </Link>
+        <div className="mx-auto max-w-7xl py-24 w-full relative z-10 grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
+            <span className="inline-block text-xs font-bold uppercase tracking-widest text-brand-blue bg-brand-gold px-3 py-1 rounded-full mb-6">
+              Bristol &amp; Bath
+            </span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">JOSH MAGGS</h1>
+            <div className="mt-4 w-16 h-1 bg-brand-gold rounded-full" />
+            <p className="mt-6 text-xl font-medium text-brand-gold">Mobile Sports Massage Therapy</p>
+            <p className="mt-4 max-w-2xl text-lg text-white/75">
+              Professional sports massage, brought to you, at the comfort of your home.
+            </p>
+            <div className="mt-10">
+              <Link
+                href="/booking"
+                className="inline-block bg-brand-gold text-brand-blue font-bold px-8 py-4 rounded-lg text-lg hover:opacity-90 transition-opacity"
+              >
+                Book Now
+              </Link>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2 min-h-[180px] rounded-2xl border-2 border-white/25 bg-white/10 p-4 flex items-center justify-center text-center text-white/85 text-sm">
+              {heroImage ? (
+                <img src={heroImage} alt="Hero upload" className="h-full w-full rounded-xl object-cover" />
+              ) : (
+                <div>
+                  <p className="font-semibold">Photo upload placeholder</p>
+                  <p className="text-xs text-white/70 mt-1">Upload image in admin</p>
+                </div>
+              )}
+            </div>
+            <div className="min-h-[140px] rounded-2xl border-2 border-dashed border-white/30 bg-white/5 p-4 flex items-center justify-center text-center text-xs text-white/75">
+              Photo upload placeholder
+            </div>
+            <div className="min-h-[140px] rounded-2xl border-2 border-dashed border-white/30 bg-white/5 p-4 flex items-center justify-center text-center text-xs text-white/75">
+              Photo upload placeholder
+            </div>
           </div>
         </div>
       </section>

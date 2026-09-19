@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       valid: true,
       code: validation.code,
-      discount_percentage: validation.discountPercentage,
+      discount_amount_pence: validation.discountAmountPence,
       expires_at: validation.voucher.expires_at,
       max_uses: validation.voucher.max_uses,
       uses_count: validation.voucher.uses_count,
