@@ -30,14 +30,16 @@ const benefits = [
 
 export default function Home() {
   const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [aboutImage, setAboutImage] = useState<string | null>(null);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [heroRes, treatmentsRes] = await Promise.all([
+        const [heroRes, aboutRes, treatmentsRes] = await Promise.all([
           fetch("/api/hero-image"),
+          fetch("/api/about-image"),
           fetch("/api/treatments"),
         ]);
 
@@ -46,12 +48,21 @@ export default function Home() {
           setHeroImage(heroData.image_url || null);
         }
 
+        if (aboutRes.ok) {
+          const aboutData = await aboutRes.json();
+          setAboutImage(aboutData.image_url || null);
+        } else {
+          // Fallback: use heroImage for about if separate endpoint not available
+          setAboutImage(null);
+        }
+
         if (treatmentsRes.ok) {
           const treatmentsData = await treatmentsRes.json();
           setTreatments(treatmentsData.filter((t: Treatment) => t.active));
         }
       } catch {
         setHeroImage(null);
+        setAboutImage(null);
         setTreatments([]);
       } finally {
         setLoading(false);
@@ -95,23 +106,17 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2 min-h-[180px] rounded-2xl border-2 border-white/25 bg-white/10 p-4 flex items-center justify-center text-center text-white/85 text-sm">
-              {heroImage ? (
-                <img src={heroImage} alt="Hero upload" className="h-full w-full rounded-xl object-cover" />
-              ) : (
-                <div>
-                  <p className="font-semibold">Photo upload placeholder</p>
-                  <p className="text-xs text-white/70 mt-1">Upload image in admin</p>
-                </div>
-              )}
-            </div>
-            <div className="min-h-[140px] rounded-2xl border-2 border-dashed border-white/30 bg-white/5 p-4 flex items-center justify-center text-center text-xs text-white/75">
-              Photo upload placeholder
-            </div>
-            <div className="min-h-[140px] rounded-2xl border-2 border-dashed border-white/30 bg-white/5 p-4 flex items-center justify-center text-center text-xs text-white/75">
-              Photo upload placeholder
-            </div>
+          <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-white/10 border-2 border-white/25 shadow-md overflow-hidden">
+            {loading ? (
+              <div className="text-white/60">Loading...</div>
+            ) : heroImage ? (
+              <img src={heroImage} alt="Josh Maggs" className="w-full h-full object-cover" />
+            ) : (
+              <div className="text-center text-white/60 text-sm">
+                <p>[ Josh's Photo ]</p>
+                <p className="text-xs text-white/40 mt-2">Upload in admin panel</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -121,11 +126,11 @@ export default function Home() {
           <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-gray-50 shadow-sm overflow-hidden">
             {loading ? (
               <div className="text-gray-400">Loading...</div>
-            ) : heroImage ? (
-              <img src={heroImage} alt="Josh Maggs" className="w-full h-full object-cover" />
+            ) : aboutImage ? (
+              <img src={aboutImage} alt="About Josh Maggs" className="w-full h-full object-cover" />
             ) : (
               <div className="text-center text-gray-400 text-sm">
-                <p>[ Photo of Josh ]</p>
+                <p>[ About Josh ]</p>
                 <p className="text-xs text-gray-300 mt-2">Upload in admin</p>
               </div>
             )}
