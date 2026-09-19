@@ -36,9 +36,13 @@ export default function AdminPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [deletingImage, setDeletingImage] = useState(false);
   const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [aboutImage, setAboutImage] = useState<string | null>(null);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [deletingHero, setDeletingHero] = useState(false);
   const [heroError, setHeroError] = useState("");
+  const [uploadingAbout, setUploadingAbout] = useState(false);
+  const [deletingAbout, setDeletingAbout] = useState(false);
+  const [aboutError, setAboutError] = useState("");
 
   // Social settings
   const [socials, setSocials] = useState({
@@ -79,6 +83,18 @@ export default function AdminPage() {
       }
     } catch {
       setHeroImage(null);
+    }
+  }, [headers]);
+
+  const loadAboutImage = useCallback(async () => {
+    try {
+      const res = await fetch("/api/about-image", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setAboutImage(data.image_url || null);
+      }
+    } catch {
+      setAboutImage(null);
     }
   }, [headers]);
 
@@ -139,9 +155,10 @@ export default function AdminPage() {
       localStorage.setItem("adminToken", password);
       void loadTreatments();
       void loadHeroImage();
+      void loadAboutImage();
       void loadSocials();
     }
-  }, [isAuthed, loadTreatments, loadHeroImage, loadSocials, password]);
+  }, [isAuthed, loadTreatments, loadHeroImage, loadAboutImage, loadSocials, password]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -324,6 +341,60 @@ export default function AdminPage() {
       setHeroError("Failed to delete hero image.");
     } finally {
       setDeletingHero(false);
+    }
+  };
+
+  const handleAboutImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+
+    setUploadingAbout(true);
+    setAboutError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", e.target.files[0]);
+
+      const res = await fetch("/api/about-image", {
+        method: "POST",
+        headers: { "x-admin-password": password },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setAboutError(data?.error ?? "Failed to upload image.");
+        return;
+      }
+
+      setAboutImage(data.image_url);
+    } catch {
+      setAboutError("Failed to upload about image.");
+    } finally {
+      setUploadingAbout(false);
+    }
+  };
+
+  const handleDeleteAboutImage = async () => {
+    if (!aboutImage) return;
+
+    setDeletingAbout(true);
+    setAboutError("");
+    try {
+      const res = await fetch("/api/about-image", {
+        method: "DELETE",
+        headers: { "x-admin-password": password },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setAboutError(data?.error ?? "Failed to delete image.");
+        return;
+      }
+
+      setAboutImage(null);
+    } catch {
+      setAboutError("Failed to delete about image.");
+    } finally {
+      setDeletingAbout(false);
     }
   };
 
@@ -710,7 +781,7 @@ export default function AdminPage() {
 
             {/* Hero Image Settings */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Image</h2>
+              <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Image (Blue Section)</h2>
               {heroError && <p className="text-sm text-red-600 mb-4">{heroError}</p>}
               
               {heroImage && (
@@ -738,6 +809,41 @@ export default function AdminPage() {
                     className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
                   >
                     {deletingHero ? "Deleting..." : "Delete hero image"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* About Image Settings */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-brand-blue mb-6">About Image (About Section)</h2>
+              {aboutError && <p className="text-sm text-red-600 mb-4">{aboutError}</p>}
+              
+              {aboutImage && (
+                <div className="mb-6 rounded-lg overflow-hidden w-full h-64 bg-gray-200">
+                  <img src={aboutImage} alt="About" className="w-full h-full object-cover" />
+                </div>
+              )}
+              
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-brand-blue">Upload Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAboutImageUpload}
+                  disabled={uploadingAbout}
+                  className="w-full text-sm"
+                />
+                {uploadingAbout && <p className="text-xs text-gray-500">Uploading...</p>}
+                
+                {aboutImage && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAboutImage}
+                    disabled={deletingAbout}
+                    className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {deletingAbout ? "Deleting..." : "Delete about image"}
                   </button>
                 )}
               </div>
