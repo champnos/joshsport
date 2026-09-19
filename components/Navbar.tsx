@@ -25,45 +25,47 @@ export default function Navbar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-slate-900 border-b-2 border-brand-gold">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center flex-shrink-0">
-          <div className="drop-shadow-2xl" style={{
-            filter: "drop-shadow(0 0 8px rgba(255, 255, 255, 0.5)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.3))"
-          }}>
-            <Image
-              src="/logo.png"
-              alt="MMT Logo"
-              width={280}
-              height={112}
-              className="h-28 w-auto object-contain"
-              priority
-            />
+      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2">
+        <div className="flex items-center justify-between">
+          <Link href="/" className="flex items-center flex-shrink-0 ml-8">
+            <div className="drop-shadow-2xl" style={{
+              filter: "drop-shadow(0 0 8px rgba(255, 255, 255, 0.5)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.3))"
+            }}>
+              <Image
+                src="/logo.png"
+                alt="MMT Logo"
+                width={280}
+                height={112}
+                className="h-28 w-auto object-contain"
+                priority
+              />
+            </div>
+          </Link>
+
+          <div className="hidden md:flex items-center gap-12 mr-8">
+            {navLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={`text-sm font-medium transition-colors ${
+                  isActive(l.href)
+                    ? "text-brand-gold border-b-2 border-brand-gold pb-1"
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                {l.label}
+              </Link>
+            ))}
           </div>
-        </Link>
 
-        <div className="hidden md:flex items-center gap-12">
-          {navLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`text-sm font-medium transition-colors ${
-                isActive(l.href)
-                  ? "text-brand-gold border-b-2 border-brand-gold pb-1"
-                  : "text-white/70 hover:text-white"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
+          <button
+            className="md:hidden text-white"
+            onClick={() => setOpen(!open)}
+            aria-label="Toggle menu"
+          >
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
         </div>
-
-        <button
-          className="md:hidden text-white"
-          onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
       </nav>
 
       {open && (
