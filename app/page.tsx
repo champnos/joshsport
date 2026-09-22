@@ -139,7 +139,7 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-white/10 border-2 border-white/25 shadow-md overflow-hidden">
+          <div className="flex h-[320px] w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-white/25 bg-white/10 shadow-md sm:h-[400px] lg:h-[520px]">
             {loading ? (
               <div className="text-white/60">Loading...</div>
             ) : heroImages[heroImageIndex] ? (
@@ -156,7 +156,7 @@ export default function Home() {
 
       <section className="bg-white py-8 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
-          <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-gray-50 shadow-sm overflow-hidden">
+          <div className="flex h-[320px] w-full items-center justify-center overflow-hidden rounded-2xl bg-gray-50 shadow-sm sm:h-[400px] lg:h-[520px]">
             {loading ? (
               <div className="text-gray-400">Loading...</div>
             ) : aboutImages[aboutImageIndex] ? (
