@@ -49,6 +49,17 @@ create table if not exists customers (
   full_name text,
   password_hash text not null,
   email_verified_at timestamptz,
+  phone text,
+  address text,
+  postcode text,
+  date_of_birth text,
+  medical_conditions jsonb not null default '[]'::jsonb,
+  medical_notes text,
+  injury_recent boolean not null default false,
+  injury_recent_notes text,
+  injury_previous boolean not null default false,
+  injury_previous_notes text,
+  additional_information text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

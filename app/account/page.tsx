@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 interface CustomerSession {
   id: string;
@@ -11,73 +10,86 @@ interface CustomerSession {
   email_verified: boolean;
 }
 
-function AccountPageInner() {
-  const params = useSearchParams();
-  const resetToken = params.get("reset") || "";
-  const verificationStatus = params.get("verified") || "";
+interface CustomerProfile {
+  email: string;
+  full_name: string;
+  phone: string;
+  address: string;
+  postcode: string;
+  date_of_birth: string;
+  medical_conditions: string[];
+  medical_notes: string;
+  injury_recent: boolean;
+  injury_recent_notes: string;
+  injury_previous: boolean;
+  injury_previous_notes: string;
+  additional_information: string;
+}
 
+const EMPTY_PROFILE: CustomerProfile = {
+  email: "",
+  full_name: "",
+  phone: "",
+  address: "",
+  postcode: "",
+  date_of_birth: "",
+  medical_conditions: [],
+  medical_notes: "",
+  injury_recent: false,
+  injury_recent_notes: "",
+  injury_previous: false,
+  injury_previous_notes: "",
+  additional_information: "",
+};
+
+export default function AccountPage() {
+  const [loading, setLoading] = useState(true);
   const [customer, setCustomer] = useState<CustomerSession | null>(null);
-  const [registering, setRegistering] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
-  const [requestingReset, setRequestingReset] = useState(false);
-  const [resettingPassword, setResettingPassword] = useState(false);
-
-  const [registerEmail, setRegisterEmail] = useState("");
-  const [registerName, setRegisterName] = useState("");
-  const [registerPassword, setRegisterPassword] = useState("");
-  const [registerMessage, setRegisterMessage] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetMessage, setResetMessage] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newPasswordMessage, setNewPasswordMessage] = useState("");
+  const [profile, setProfile] = useState<CustomerProfile>(EMPTY_PROFILE);
+  const [conditionsInput, setConditionsInput] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
 
-  const verificationMessage = useMemo(() => {
-    if (verificationStatus === "success") return "Email verified — your account is now active.";
-    if (verificationStatus === "expired") return "Verification link expired. Please register again to get a new one.";
-    if (verificationStatus === "invalid") return "Verification link is invalid.";
-    if (verificationStatus === "error") return "Unable to verify email right now.";
-    return "";
-  }, [verificationStatus]);
+  const loadProfile = useCallback(async () => {
+    const response = await fetch("/api/account/profile");
+    if (!response.ok) return;
 
-  const loadSession = async () => {
-    const response = await fetch("/api/auth/me");
     const payload = await response.json();
-    setCustomer(payload.customer || null);
-  };
+    const loadedProfile = {
+      ...EMPTY_PROFILE,
+      ...payload.profile,
+      medical_conditions: Array.isArray(payload.profile?.medical_conditions) ? payload.profile.medical_conditions : [],
+    } as CustomerProfile;
+
+    setProfile(loadedProfile);
+    setConditionsInput(loadedProfile.medical_conditions.join(", "));
+  }, []);
+
+  const loadSession = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/me");
+      const payload = await response.json();
+      const sessionCustomer = (payload.customer ?? null) as CustomerSession | null;
+      setCustomer(sessionCustomer);
+      if (sessionCustomer) {
+        setProfile((prev) => ({ ...prev, email: sessionCustomer.email }));
+        await loadProfile();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [loadProfile]);
 
   useEffect(() => {
     void loadSession();
-  }, []);
-
-  const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setRegistering(true);
-    setRegisterMessage("");
-
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: registerEmail, full_name: registerName, password: registerPassword }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        setRegisterMessage(payload?.error || "Unable to create account.");
-        return;
-      }
-
-      setRegisterMessage("Account created. Check your email for a verification link.");
-      setRegisterPassword("");
-    } finally {
-      setRegistering(false);
-    }
-
-  };
+  }, [loadSession]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -95,8 +107,9 @@ function AccountPageInner() {
         setLoginError(payload?.error || "Unable to log in.");
         return;
       }
-      setCustomer(payload.customer || null);
+
       setLoginPassword("");
+      await loadSession();
     } finally {
       setLoggingIn(false);
     }
@@ -105,194 +118,274 @@ function AccountPageInner() {
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setCustomer(null);
+    setProfile(EMPTY_PROFILE);
+    setConditionsInput("");
   };
 
-  const handleRequestReset = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setRequestingReset(true);
-    setResetMessage("");
+    setSavingProfile(true);
+    setProfileMessage("");
+
+    const medicalConditions = conditionsInput
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
 
     try {
-      const response = await fetch("/api/auth/request-password-reset", {
-        method: "POST",
+      const response = await fetch("/api/account/profile", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail }),
+        body: JSON.stringify({
+          ...profile,
+          medical_conditions: medicalConditions,
+        }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setResetMessage(payload?.error || "Unable to request reset.");
+        setProfileMessage(payload?.error || "Unable to save profile.");
         return;
       }
-      setResetMessage("If this email is registered, a password reset link has been sent.");
+
+      const updatedProfile = {
+        ...EMPTY_PROFILE,
+        ...payload.profile,
+        medical_conditions: Array.isArray(payload.profile?.medical_conditions) ? payload.profile.medical_conditions : [],
+      } as CustomerProfile;
+
+      setProfile(updatedProfile);
+      setConditionsInput(updatedProfile.medical_conditions.join(", "));
+      setProfileMessage("Profile saved.");
     } finally {
-      setRequestingReset(false);
+      setSavingProfile(false);
     }
   };
 
-  const handleResetPassword = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!resetToken) return;
+  if (loading) {
+    return <div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">Loading account...</div>;
+  }
 
-    setResettingPassword(true);
-    setNewPasswordMessage("");
+  if (!customer) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">
+        <div className="mx-auto max-w-md rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+          <h1 className="text-2xl font-bold text-brand-blue">Log in</h1>
+          <p className="text-sm text-gray-600">Access your account to manage your profile and bookings.</p>
 
-    try {
-      const response = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: resetToken, password: newPassword }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        setNewPasswordMessage(payload?.error || "Unable to reset password.");
-        return;
-      }
-      setNewPasswordMessage("Password updated. You can now log in.");
-      setNewPassword("");
-    } finally {
-      setResettingPassword(false);
-    }
-  };
-
-  return (
-    <div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">
-      <div className="mx-auto max-w-5xl grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-          <h1 className="text-2xl font-bold text-brand-blue">Customer account</h1>
-          <p className="text-sm text-gray-600">Create an account to book appointments and manage secure checkout.</p>
-          {verificationMessage && <p className="text-sm text-brand-blue">{verificationMessage}</p>}
-
-          {customer ? (
-            <div className="space-y-3">
-              <p className="text-sm">Signed in as <strong>{customer.email}</strong></p>
-              <p className="text-xs text-gray-500">Email verified: {customer.email_verified ? "Yes" : "No"}</p>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50"
-              >
-                Log out
-              </button>
-              <p className="text-xs text-gray-500">Ready to book? <Link className="font-semibold text-brand-blue" href="/booking">Go to booking</Link></p>
-            </div>
-          ) : (
-            <form className="space-y-3" onSubmit={handleLogin}>
-              <h2 className="text-lg font-semibold text-brand-blue">Log in</h2>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(event) => setLoginEmail(event.target.value)}
-                placeholder="Email"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                required
-              />
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(event) => setLoginPassword(event.target.value)}
-                placeholder="Password"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                required
-              />
-              {loginError && <p className="text-sm text-red-600">{loginError}</p>}
-              <button
-                type="submit"
-                disabled={loggingIn}
-                className="w-full rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-              >
-                {loggingIn ? "Logging in..." : "Log in"}
-              </button>
-            </form>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <form className="rounded-2xl border border-gray-200 p-6 shadow-sm space-y-3" onSubmit={handleRegister}>
-            <h2 className="text-lg font-semibold text-brand-blue">Create account</h2>
-            <input
-              type="text"
-              value={registerName}
-              onChange={(event) => setRegisterName(event.target.value)}
-              placeholder="Full name (optional)"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
+          <form className="space-y-3" onSubmit={handleLogin}>
             <input
               type="email"
-              value={registerEmail}
-              onChange={(event) => setRegisterEmail(event.target.value)}
+              value={loginEmail}
+              onChange={(event) => setLoginEmail(event.target.value)}
               placeholder="Email"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
               required
             />
             <input
               type="password"
-              value={registerPassword}
-              onChange={(event) => setRegisterPassword(event.target.value)}
-              placeholder="Password (min 8 characters)"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              value={loginPassword}
+              onChange={(event) => setLoginPassword(event.target.value)}
+              placeholder="Password"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
               required
             />
-            {registerMessage && <p className="text-sm text-gray-700">{registerMessage}</p>}
+            {loginError && <p className="text-sm text-red-600">{loginError}</p>}
             <button
               type="submit"
-              disabled={registering}
-              className="w-full rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-brand-blue hover:opacity-90 disabled:opacity-60"
+              disabled={loggingIn}
+              className="w-full rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
             >
-              {registering ? "Creating..." : "Create account"}
+              {loggingIn ? "Logging in..." : "Log in"}
             </button>
           </form>
 
-          <form className="rounded-2xl border border-gray-200 p-6 shadow-sm space-y-3" onSubmit={handleRequestReset}>
-            <h2 className="text-lg font-semibold text-brand-blue">Forgot password</h2>
-            <input
-              type="email"
-              value={resetEmail}
-              onChange={(event) => setResetEmail(event.target.value)}
-              placeholder="Email"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              required
-            />
-            {resetMessage && <p className="text-sm text-gray-700">{resetMessage}</p>}
-            <button
-              type="submit"
-              disabled={requestingReset}
-              className="w-full rounded-lg border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5 disabled:opacity-60"
-            >
-              {requestingReset ? "Sending..." : "Send reset link"}
-            </button>
-          </form>
-
-          {resetToken && (
-            <form className="rounded-2xl border border-gray-200 p-6 shadow-sm space-y-3" onSubmit={handleResetPassword}>
-              <h2 className="text-lg font-semibold text-brand-blue">Set new password</h2>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                placeholder="New password"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                required
-              />
-              {newPasswordMessage && <p className="text-sm text-gray-700">{newPasswordMessage}</p>}
-              <button
-                type="submit"
-                disabled={resettingPassword}
-                className="w-full rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-              >
-                {resettingPassword ? "Updating..." : "Update password"}
-              </button>
-            </form>
-          )}
+          <div className="space-y-2 text-sm">
+            <p>
+              Don&apos;t have an account?{" "}
+              <Link className="font-semibold text-brand-blue" href="/account/register">
+                Sign up
+              </Link>
+            </p>
+            <p>
+              <Link className="font-semibold text-brand-blue" href="/account/forgot-password">
+                Forgot password?
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-export default function AccountPage() {
   return (
-    <Suspense fallback={<div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">Loading account...</div>}>
-      <AccountPageInner />
-    </Suspense>
+    <div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">
+      <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 p-6 shadow-sm space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-brand-blue">My Account</h1>
+            <p className="text-sm text-gray-600">Signed in as <strong>{customer.email}</strong></p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/booking"
+              className="rounded-lg border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5"
+            >
+              Back to booking
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+            >
+              Log out
+            </button>
+          </div>
+        </div>
+
+        <form className="grid gap-4" onSubmit={handleSaveProfile}>
+          <div>
+            <label className="block text-sm font-semibold text-brand-blue mb-1">Full name</label>
+            <input
+              type="text"
+              value={profile.full_name}
+              onChange={(event) => setProfile((prev) => ({ ...prev, full_name: event.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-brand-blue mb-1">Email</label>
+            <input
+              type="email"
+              value={profile.email}
+              readOnly
+              className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-semibold text-brand-blue mb-1">Phone</label>
+              <input
+                type="tel"
+                value={profile.phone}
+                onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-brand-blue mb-1">Date of birth</label>
+              <input
+                type="date"
+                value={profile.date_of_birth}
+                onChange={(event) => setProfile((prev) => ({ ...prev, date_of_birth: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-semibold text-brand-blue mb-1">Address</label>
+              <input
+                type="text"
+                value={profile.address}
+                onChange={(event) => setProfile((prev) => ({ ...prev, address: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-brand-blue mb-1">Postcode</label>
+              <input
+                type="text"
+                value={profile.postcode}
+                onChange={(event) => setProfile((prev) => ({ ...prev, postcode: event.target.value.toUpperCase() }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-brand-blue mb-1">Medical conditions (comma separated)</label>
+            <textarea
+              value={conditionsInput}
+              onChange={(event) => setConditionsInput(event.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-brand-blue mb-1">Medical notes</label>
+            <textarea
+              value={profile.medical_notes}
+              onChange={(event) => setProfile((prev) => ({ ...prev, medical_notes: event.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-semibold text-brand-blue mb-1">Recent injury in last 12 months?</label>
+              <select
+                value={profile.injury_recent ? "yes" : "no"}
+                onChange={(event) => setProfile((prev) => ({ ...prev, injury_recent: event.target.value === "yes" }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+              <textarea
+                value={profile.injury_recent_notes}
+                onChange={(event) => setProfile((prev) => ({ ...prev, injury_recent_notes: event.target.value }))}
+                rows={3}
+                placeholder="Recent injury notes"
+                className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-brand-blue mb-1">Previous injuries still affecting you?</label>
+              <select
+                value={profile.injury_previous ? "yes" : "no"}
+                onChange={(event) => setProfile((prev) => ({ ...prev, injury_previous: event.target.value === "yes" }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+              <textarea
+                value={profile.injury_previous_notes}
+                onChange={(event) => setProfile((prev) => ({ ...prev, injury_previous_notes: event.target.value }))}
+                rows={3}
+                placeholder="Previous injury notes"
+                className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-brand-blue mb-1">Additional information</label>
+            <textarea
+              value={profile.additional_information}
+              onChange={(event) => setProfile((prev) => ({ ...prev, additional_information: event.target.value }))}
+              rows={4}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+
+          {profileMessage && <p className="text-sm text-gray-700">{profileMessage}</p>}
+
+          <button
+            type="submit"
+            disabled={savingProfile}
+            className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {savingProfile ? "Saving..." : "Save profile"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
