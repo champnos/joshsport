@@ -10,6 +10,7 @@ const navLinks = [
   { href: "/treatments", label: "Treatments" },
   { href: "/booking", label: "Book Now" },
   { href: "/account", label: "Account" },
+  { href: "/terms", label: "T's & C's" },
   { href: "/contact", label: "Contact" },
 ];
 
