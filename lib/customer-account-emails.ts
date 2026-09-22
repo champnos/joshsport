@@ -32,7 +32,7 @@ export async function sendCustomerVerificationEmail(email: string, token: string
 
 export async function sendCustomerPasswordResetEmail(email: string, token: string) {
   const resend = getResendClient();
-  const resetUrl = `${getBaseUrl()}/account?reset=${encodeURIComponent(token)}`;
+  const resetUrl = `${getBaseUrl()}/account/reset-password?token=${encodeURIComponent(token)}`;
 
   if (!resend) {
     console.info("Customer password reset email skipped (missing RESEND_API_KEY):", resetUrl);

@@ -52,6 +52,36 @@ function phoneMatches(leftPhone: string, rightPhone: string) {
   return leftPhone !== "" && rightPhone !== "" && leftPhone === rightPhone;
 }
 
+function buildCustomerProfileUpdate(booking: {
+  client_name: string;
+  client_dob: string;
+  client_phone: string;
+  client_address: string;
+  client_postcode: string;
+  medical_conditions: string[];
+  medical_notes: string;
+  injury_recent: boolean;
+  injury_recent_notes: string;
+  injury_previous: boolean;
+  injury_previous_notes: string;
+  additional_information: string;
+}) {
+  return {
+    full_name: booking.client_name || null,
+    date_of_birth: booking.client_dob || null,
+    phone: booking.client_phone || null,
+    address: booking.client_address || null,
+    postcode: booking.client_postcode || null,
+    medical_conditions: booking.medical_conditions,
+    medical_notes: booking.medical_notes || null,
+    injury_recent: booking.injury_recent,
+    injury_recent_notes: booking.injury_recent_notes || null,
+    injury_previous: booking.injury_previous,
+    injury_previous_notes: booking.injury_previous_notes || null,
+    additional_information: booking.additional_information || null,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
@@ -190,6 +220,15 @@ export async function POST(request: NextRequest) {
       }
 
       throw error;
+    }
+
+    try {
+      await supabaseAdmin
+        .from("customers")
+        .update(buildCustomerProfileUpdate(preparedBooking.normalizedBooking))
+        .eq("id", authenticatedCustomer.id);
+    } catch (profileUpdateError) {
+      console.error("Failed to sync customer profile from booking:", profileUpdateError);
     }
 
     return NextResponse.json(

@@ -20,6 +20,23 @@ interface CustomerSessionResponse {
   } | null;
 }
 
+interface CustomerProfileResponse {
+  profile?: {
+    full_name?: string;
+    phone?: string;
+    address?: string;
+    postcode?: string;
+    date_of_birth?: string;
+    medical_conditions?: string[];
+    medical_notes?: string;
+    injury_recent?: boolean;
+    injury_recent_notes?: string;
+    injury_previous?: boolean;
+    injury_previous_notes?: string;
+    additional_information?: string;
+  };
+}
+
 interface TreatmentOption {
   id: string;
   name: string;
@@ -146,6 +163,26 @@ function BookingInner() {
           if (sessionData.customer?.email) {
             setClientEmail(sessionData.customer.email);
             setIsCustomerVerified(Boolean(sessionData.customer.email_verified));
+
+            const profileRes = await fetch("/api/account/profile");
+            if (profileRes.ok) {
+              const profileData = (await profileRes.json()) as CustomerProfileResponse;
+              const profile = profileData.profile;
+              if (profile) {
+                setClientName(profile.full_name ?? "");
+                setClientPhone(profile.phone ?? "");
+                setClientAddress(profile.address ?? "");
+                setClientPostcode(profile.postcode ?? "");
+                setClientDob(profile.date_of_birth ?? "");
+                setMedicalConditions(Array.isArray(profile.medical_conditions) ? profile.medical_conditions : []);
+                setMedicalNotes(profile.medical_notes ?? "");
+                setInjuryRecent(typeof profile.injury_recent === "boolean" ? profile.injury_recent : null);
+                setInjuryRecentNotes(profile.injury_recent_notes ?? "");
+                setInjuryPrevious(typeof profile.injury_previous === "boolean" ? profile.injury_previous : null);
+                setInjuryPreviousNotes(profile.injury_previous_notes ?? "");
+                setAdditionalInfo(profile.additional_information ?? "");
+              }
+            }
           } else {
             setClientEmail("");
             setIsCustomerVerified(false);
