@@ -43,11 +43,7 @@ export default function AdminPage() {
   const [uploadingAbout, setUploadingAbout] = useState(false);
   const [deletingAbout, setDeletingAbout] = useState(false);
   const [aboutError, setAboutError] = useState("");
-  const [frontpageTermsTitle, setFrontpageTermsTitle] = useState("T's & C's");
-  const [frontpageTermsContent, setFrontpageTermsContent] = useState("");
-  const [savingFrontpageTerms, setSavingFrontpageTerms] = useState(false);
   const [savingImageOrder, setSavingImageOrder] = useState(false);
-  const [frontpageTermsError, setFrontpageTermsError] = useState("");
 
   // Social settings
   const [socials, setSocials] = useState({
@@ -109,19 +105,6 @@ export default function AdminPage() {
     }
   }, [headers]);
 
-  const loadFrontpageTerms = useCallback(async () => {
-    try {
-      const res = await fetch("/api/frontpage-terms");
-      if (!res.ok) return;
-      const data = await res.json();
-      setFrontpageTermsTitle(data.title || "T's & C's");
-      setFrontpageTermsContent(data.content || "");
-    } catch {
-      setFrontpageTermsTitle("T's & C's");
-      setFrontpageTermsContent("");
-    }
-  }, []);
-
   const loadSocials = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/settings/social", { headers });
@@ -180,10 +163,9 @@ export default function AdminPage() {
       void loadTreatments();
       void loadHeroImage();
       void loadAboutImage();
-      void loadFrontpageTerms();
       void loadSocials();
     }
-  }, [isAuthed, loadTreatments, loadHeroImage, loadAboutImage, loadFrontpageTerms, loadSocials, password]);
+  }, [isAuthed, loadTreatments, loadHeroImage, loadAboutImage, loadSocials, password]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -508,29 +490,6 @@ export default function AdminPage() {
       setAboutError("Failed to save about image order.");
     } finally {
       setSavingImageOrder(false);
-    }
-  };
-
-  const handleSaveFrontpageTerms = async () => {
-    setSavingFrontpageTerms(true);
-    setFrontpageTermsError("");
-    try {
-      const res = await fetch("/api/frontpage-terms", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          title: frontpageTermsTitle,
-          content: frontpageTermsContent,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setFrontpageTermsError(data?.error ?? "Failed to save front page terms.");
-      }
-    } catch {
-      setFrontpageTermsError("Failed to save front page terms.");
-    } finally {
-      setSavingFrontpageTerms(false);
     }
   };
 
@@ -1037,36 +996,6 @@ export default function AdminPage() {
                   className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   {savingImageOrder ? "Saving order..." : "Save order"}
-                </button>
-              </div>
-            </div>
-
-            {/* Front page terms */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-brand-blue mb-3">Front page T&apos;s & C&apos;s section</h2>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={frontpageTermsTitle}
-                  onChange={(event) => setFrontpageTermsTitle(event.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                  placeholder="Section title"
-                />
-                <textarea
-                  value={frontpageTermsContent}
-                  onChange={(event) => setFrontpageTermsContent(event.target.value)}
-                  rows={6}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                  placeholder="Enter terms text"
-                />
-                {frontpageTermsError && <p className="text-sm text-red-600">{frontpageTermsError}</p>}
-                <button
-                  type="button"
-                  onClick={() => void handleSaveFrontpageTerms()}
-                  disabled={savingFrontpageTerms}
-                  className="w-full bg-brand-blue text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-70"
-                >
-                  {savingFrontpageTerms ? "Saving..." : "Save T's & C's"}
                 </button>
               </div>
             </div>

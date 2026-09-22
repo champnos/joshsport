@@ -1094,6 +1094,10 @@ function BookingInner() {
                 </button>
               </div>
 
+              <Link href="/terms" className="inline-flex text-sm font-semibold text-brand-blue underline-offset-4 hover:underline">
+                View full terms page
+              </Link>
+
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"

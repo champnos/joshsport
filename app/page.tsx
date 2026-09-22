@@ -33,20 +33,15 @@ export default function Home() {
   const [aboutImages, setAboutImages] = useState<string[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [aboutImageIndex, setAboutImageIndex] = useState(0);
-  const [frontpageTerms, setFrontpageTerms] = useState<{ title: string; content: string }>({
-    title: "T's & C's",
-    content: "Please contact us directly for the latest booking terms and conditions.",
-  });
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [heroRes, aboutRes, termsRes, treatmentsRes] = await Promise.all([
+        const [heroRes, aboutRes, treatmentsRes] = await Promise.all([
           fetch("/api/hero-image"),
           fetch("/api/about-image"),
-          fetch("/api/frontpage-terms"),
           fetch("/api/treatments"),
         ]);
 
@@ -66,14 +61,6 @@ export default function Home() {
           setAboutImages(images);
         }
 
-        if (termsRes.ok) {
-          const termsData = await termsRes.json();
-          setFrontpageTerms({
-            title: termsData.title || "T's & C's",
-            content: termsData.content || "",
-          });
-        }
-
         if (treatmentsRes.ok) {
           const treatmentsData = await treatmentsRes.json();
           setTreatments(treatmentsData.filter((t: Treatment) => t.active));
@@ -81,10 +68,6 @@ export default function Home() {
       } catch {
         setHeroImages([]);
         setAboutImages([]);
-        setFrontpageTerms({
-          title: "T's & C's",
-          content: "Please contact us directly for the latest booking terms and conditions.",
-        });
         setTreatments([]);
       } finally {
         setLoading(false);
@@ -168,13 +151,6 @@ export default function Home() {
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      <section className="bg-brand-gold/10 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-2xl border border-brand-gold/30 bg-white p-6 text-gray-800">
-          <h2 className="text-2xl font-bold text-brand-blue">{frontpageTerms.title}</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{frontpageTerms.content}</p>
         </div>
       </section>
 
