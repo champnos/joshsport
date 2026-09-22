@@ -29,18 +29,25 @@ export async function GET(request: NextRequest) {
       return redirectToAccount(request, "verified=expired");
     }
 
+    const verificationTime = new Date().toISOString();
+    const { data: consumedToken, error: consumeError } = await supabaseAdmin
+      .from("customer_email_verification_tokens")
+      .update({ consumed_at: verificationTime })
+      .eq("id", verificationToken.id)
+      .is("consumed_at", null)
+      .select("customer_id")
+      .single();
+    if (consumeError || !consumedToken) {
+      return redirectToAccount(request, "verified=expired");
+    }
+
     const { data: customer, error: customerError } = await supabaseAdmin
       .from("customers")
-      .update({ email_verified_at: new Date().toISOString() })
-      .eq("id", verificationToken.customer_id)
+      .update({ email_verified_at: verificationTime })
+      .eq("id", consumedToken.customer_id)
       .select("id, email")
       .single();
     if (customerError || !customer) throw customerError ?? new Error("Missing customer after verification.");
-
-    await supabaseAdmin
-      .from("customer_email_verification_tokens")
-      .update({ consumed_at: new Date().toISOString() })
-      .eq("id", verificationToken.id);
 
     const response = redirectToAccount(request, "verified=success");
     response.cookies.set(

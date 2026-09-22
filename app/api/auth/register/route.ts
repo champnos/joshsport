@@ -25,7 +25,14 @@ export async function POST(request: NextRequest) {
     const fullName = typeof body.full_name === "string" ? body.full_name.trim() : "";
     const password = typeof body.password === "string" ? body.password : "";
 
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    const hasValidEmailShape =
+      email.length >= 5 &&
+      email.includes("@") &&
+      email.includes(".") &&
+      !email.startsWith("@") &&
+      !email.endsWith("@") &&
+      !email.endsWith(".");
+    if (!hasValidEmailShape) {
       return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
     }
     if (password.length < 8) {

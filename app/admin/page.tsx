@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [frontpageTermsTitle, setFrontpageTermsTitle] = useState("T's & C's");
   const [frontpageTermsContent, setFrontpageTermsContent] = useState("");
   const [savingFrontpageTerms, setSavingFrontpageTerms] = useState(false);
+  const [savingImageOrder, setSavingImageOrder] = useState(false);
   const [frontpageTermsError, setFrontpageTermsError] = useState("");
 
   // Social settings
@@ -471,7 +472,7 @@ export default function AdminPage() {
   };
 
   const saveHeroImageOrder = async () => {
-    setSavingFrontpageTerms(true);
+    setSavingImageOrder(true);
     setHeroError("");
     try {
       const res = await fetch("/api/hero-image", {
@@ -486,12 +487,12 @@ export default function AdminPage() {
     } catch {
       setHeroError("Failed to save hero image order.");
     } finally {
-      setSavingFrontpageTerms(false);
+      setSavingImageOrder(false);
     }
   };
 
   const saveAboutImageOrder = async () => {
-    setSavingFrontpageTerms(true);
+    setSavingImageOrder(true);
     setAboutError("");
     try {
       const res = await fetch("/api/about-image", {
@@ -506,7 +507,7 @@ export default function AdminPage() {
     } catch {
       setAboutError("Failed to save about image order.");
     } finally {
-      setSavingFrontpageTerms(false);
+      setSavingImageOrder(false);
     }
   };
 
@@ -957,10 +958,10 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => void saveHeroImageOrder()}
-                  disabled={savingFrontpageTerms}
+                  disabled={savingImageOrder}
                   className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Save order
+                  {savingImageOrder ? "Saving order..." : "Save order"}
                 </button>
               </div>
             </div>
@@ -1032,10 +1033,10 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => void saveAboutImageOrder()}
-                  disabled={savingFrontpageTerms}
+                  disabled={savingImageOrder}
                   className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Save order
+                  {savingImageOrder ? "Saving order..." : "Save order"}
                 </button>
               </div>
             </div>

@@ -25,6 +25,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true }, { status: 200 });
     }
 
+    await supabaseAdmin
+      .from("customer_password_reset_tokens")
+      .delete()
+      .lt("expires_at", new Date().toISOString());
+
     const { data: customer, error: customerError } = await supabaseAdmin
       .from("customers")
       .select("id, email")

@@ -146,7 +146,13 @@ function BookingInner() {
           if (sessionData.customer?.email) {
             setClientEmail(sessionData.customer.email);
             setIsCustomerVerified(Boolean(sessionData.customer.email_verified));
+          } else {
+            setClientEmail("");
+            setIsCustomerVerified(false);
           }
+        } else {
+          setClientEmail("");
+          setIsCustomerVerified(false);
         }
 
         // Load treatments
