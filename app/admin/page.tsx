@@ -35,14 +35,18 @@ export default function AdminPage() {
   const [form, setForm] = useState<TreatmentFormState>(emptyForm);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [deletingImage, setDeletingImage] = useState(false);
-  const [heroImage, setHeroImage] = useState<string | null>(null);
-  const [aboutImage, setAboutImage] = useState<string | null>(null);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [aboutImages, setAboutImages] = useState<string[]>([]);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [deletingHero, setDeletingHero] = useState(false);
   const [heroError, setHeroError] = useState("");
   const [uploadingAbout, setUploadingAbout] = useState(false);
   const [deletingAbout, setDeletingAbout] = useState(false);
   const [aboutError, setAboutError] = useState("");
+  const [frontpageTermsTitle, setFrontpageTermsTitle] = useState("T's & C's");
+  const [frontpageTermsContent, setFrontpageTermsContent] = useState("");
+  const [savingFrontpageTerms, setSavingFrontpageTerms] = useState(false);
+  const [frontpageTermsError, setFrontpageTermsError] = useState("");
 
   // Social settings
   const [socials, setSocials] = useState({
@@ -79,10 +83,13 @@ export default function AdminPage() {
       const res = await fetch("/api/hero-image", { headers });
       if (res.ok) {
         const data = await res.json();
-        setHeroImage(data.image_url || null);
+        const images = Array.isArray(data.images)
+          ? data.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+          : data.image_url ? [data.image_url] : [];
+        setHeroImages(images);
       }
     } catch {
-      setHeroImage(null);
+      setHeroImages([]);
     }
   }, [headers]);
 
@@ -91,12 +98,28 @@ export default function AdminPage() {
       const res = await fetch("/api/about-image", { headers });
       if (res.ok) {
         const data = await res.json();
-        setAboutImage(data.image_url || null);
+        const images = Array.isArray(data.images)
+          ? data.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+          : data.image_url ? [data.image_url] : [];
+        setAboutImages(images);
       }
     } catch {
-      setAboutImage(null);
+      setAboutImages([]);
     }
   }, [headers]);
+
+  const loadFrontpageTerms = useCallback(async () => {
+    try {
+      const res = await fetch("/api/frontpage-terms");
+      if (!res.ok) return;
+      const data = await res.json();
+      setFrontpageTermsTitle(data.title || "T's & C's");
+      setFrontpageTermsContent(data.content || "");
+    } catch {
+      setFrontpageTermsTitle("T's & C's");
+      setFrontpageTermsContent("");
+    }
+  }, []);
 
   const loadSocials = useCallback(async () => {
     try {
@@ -156,9 +179,10 @@ export default function AdminPage() {
       void loadTreatments();
       void loadHeroImage();
       void loadAboutImage();
+      void loadFrontpageTerms();
       void loadSocials();
     }
-  }, [isAuthed, loadTreatments, loadHeroImage, loadAboutImage, loadSocials, password]);
+  }, [isAuthed, loadTreatments, loadHeroImage, loadAboutImage, loadFrontpageTerms, loadSocials, password]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -290,7 +314,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
     if (!e.target.files?.[0]) return;
 
     setUploadingHero(true);
@@ -298,6 +322,7 @@ export default function AdminPage() {
     try {
       const formData = new FormData();
       formData.append("file", e.target.files[0]);
+      if (Number.isInteger(index)) formData.append("index", String(index));
 
       const res = await fetch("/api/hero-image", {
         method: "POST",
@@ -311,21 +336,20 @@ export default function AdminPage() {
         return;
       }
 
-      setHeroImage(data.image_url);
+      setHeroImages(Array.isArray(data.images) ? data.images : []);
     } catch {
       setHeroError("Failed to upload hero image.");
     } finally {
       setUploadingHero(false);
+      e.target.value = "";
     }
   };
 
-  const handleDeleteHeroImage = async () => {
-    if (!heroImage) return;
-
+  const handleDeleteHeroImage = async (index: number) => {
     setDeletingHero(true);
     setHeroError("");
     try {
-      const res = await fetch("/api/hero-image", {
+      const res = await fetch(`/api/hero-image?index=${index}`, {
         method: "DELETE",
         headers: { "x-admin-password": password },
       });
@@ -336,7 +360,8 @@ export default function AdminPage() {
         return;
       }
 
-      setHeroImage(null);
+      const data = await res.json().catch(() => null);
+      setHeroImages(Array.isArray(data?.images) ? data.images : []);
     } catch {
       setHeroError("Failed to delete hero image.");
     } finally {
@@ -344,7 +369,18 @@ export default function AdminPage() {
     }
   };
 
-  const handleAboutImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const moveHeroImage = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= heroImages.length) return;
+    setHeroImages((current) => {
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next;
+    });
+  };
+
+  const handleAboutImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
     if (!e.target.files?.[0]) return;
 
     setUploadingAbout(true);
@@ -352,6 +388,7 @@ export default function AdminPage() {
     try {
       const formData = new FormData();
       formData.append("file", e.target.files[0]);
+      if (Number.isInteger(index)) formData.append("index", String(index));
 
       const res = await fetch("/api/about-image", {
         method: "POST",
@@ -365,21 +402,20 @@ export default function AdminPage() {
         return;
       }
 
-      setAboutImage(data.image_url);
+      setAboutImages(Array.isArray(data.images) ? data.images : []);
     } catch {
       setAboutError("Failed to upload about image.");
     } finally {
       setUploadingAbout(false);
+      e.target.value = "";
     }
   };
 
-  const handleDeleteAboutImage = async () => {
-    if (!aboutImage) return;
-
+  const handleDeleteAboutImage = async (index: number) => {
     setDeletingAbout(true);
     setAboutError("");
     try {
-      const res = await fetch("/api/about-image", {
+      const res = await fetch(`/api/about-image?index=${index}`, {
         method: "DELETE",
         headers: { "x-admin-password": password },
       });
@@ -390,12 +426,24 @@ export default function AdminPage() {
         return;
       }
 
-      setAboutImage(null);
+      const data = await res.json().catch(() => null);
+      setAboutImages(Array.isArray(data?.images) ? data.images : []);
     } catch {
       setAboutError("Failed to delete about image.");
     } finally {
       setDeletingAbout(false);
     }
+  };
+
+  const moveAboutImage = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= aboutImages.length) return;
+    setAboutImages((current) => {
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next;
+    });
   };
 
   const handleSaveSocials = async () => {
@@ -419,6 +467,69 @@ export default function AdminPage() {
       setSocialsError("Failed to save social links.");
     } finally {
       setSavingSocials(false);
+    }
+  };
+
+  const saveHeroImageOrder = async () => {
+    setSavingFrontpageTerms(true);
+    setHeroError("");
+    try {
+      const res = await fetch("/api/hero-image", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ images: heroImages }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setHeroError(data?.error ?? "Failed to save hero image order.");
+      }
+    } catch {
+      setHeroError("Failed to save hero image order.");
+    } finally {
+      setSavingFrontpageTerms(false);
+    }
+  };
+
+  const saveAboutImageOrder = async () => {
+    setSavingFrontpageTerms(true);
+    setAboutError("");
+    try {
+      const res = await fetch("/api/about-image", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ images: aboutImages }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setAboutError(data?.error ?? "Failed to save about image order.");
+      }
+    } catch {
+      setAboutError("Failed to save about image order.");
+    } finally {
+      setSavingFrontpageTerms(false);
+    }
+  };
+
+  const handleSaveFrontpageTerms = async () => {
+    setSavingFrontpageTerms(true);
+    setFrontpageTermsError("");
+    try {
+      const res = await fetch("/api/frontpage-terms", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          title: frontpageTermsTitle,
+          content: frontpageTermsContent,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setFrontpageTermsError(data?.error ?? "Failed to save front page terms.");
+      }
+    } catch {
+      setFrontpageTermsError("Failed to save front page terms.");
+    } finally {
+      setSavingFrontpageTerms(false);
     }
   };
 
@@ -781,71 +892,181 @@ export default function AdminPage() {
 
             {/* Hero Image Settings */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Image (Blue Section)</h2>
+              <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Slideshow (Blue Section)</h2>
               {heroError && <p className="text-sm text-red-600 mb-4">{heroError}</p>}
-              
-              {heroImage && (
-                <div className="mb-6 rounded-lg overflow-hidden w-full h-64 bg-gray-200">
-                  <img src={heroImage} alt="Hero" className="w-full h-full object-cover" />
-                </div>
-              )}
-              
+
+              <div className="space-y-4 mb-6">
+                {heroImages.map((image, index) => (
+                  <div key={`${image}-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-3">
+                    <div className="rounded-lg overflow-hidden w-full h-48 bg-gray-200">
+                      <img src={image} alt={`Hero ${index + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => moveHeroImage(index, -1)}
+                        disabled={index === 0}
+                        className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                      >
+                        Move up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveHeroImage(index, 1)}
+                        disabled={index === heroImages.length - 1}
+                        className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                      >
+                        Move down
+                      </button>
+                      <label className="text-xs px-3 py-2 rounded-lg border border-gray-200 cursor-pointer">
+                        Replace
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) => void handleHeroImageUpload(event, index)}
+                          disabled={uploadingHero}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteHeroImage(index)}
+                        disabled={deletingHero}
+                        className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {heroImages.length === 0 && (
+                  <p className="text-sm text-gray-500">No hero images yet. Upload at least two to create the slideshow.</p>
+                )}
+              </div>
+
               <div className="space-y-3">
-                <label className="block text-sm font-semibold text-brand-blue">Upload Image</label>
+                <label className="block text-sm font-semibold text-brand-blue">Add Image</label>
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleHeroImageUpload}
+                  onChange={(event) => void handleHeroImageUpload(event)}
                   disabled={uploadingHero}
                   className="w-full text-sm"
                 />
                 {uploadingHero && <p className="text-xs text-gray-500">Uploading...</p>}
-                
-                {heroImage && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteHeroImage}
-                    disabled={deletingHero}
-                    className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    {deletingHero ? "Deleting..." : "Delete hero image"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => void saveHeroImageOrder()}
+                  disabled={savingFrontpageTerms}
+                  className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Save order
+                </button>
               </div>
             </div>
 
             {/* About Image Settings */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-brand-blue mb-6">About Image (About Section)</h2>
+              <h2 className="text-lg font-bold text-brand-blue mb-6">About Slideshow (About Section)</h2>
               {aboutError && <p className="text-sm text-red-600 mb-4">{aboutError}</p>}
-              
-              {aboutImage && (
-                <div className="mb-6 rounded-lg overflow-hidden w-full h-64 bg-gray-200">
-                  <img src={aboutImage} alt="About" className="w-full h-full object-cover" />
-                </div>
-              )}
-              
+
+              <div className="space-y-4 mb-6">
+                {aboutImages.map((image, index) => (
+                  <div key={`${image}-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-3">
+                    <div className="rounded-lg overflow-hidden w-full h-48 bg-gray-200">
+                      <img src={image} alt={`About ${index + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => moveAboutImage(index, -1)}
+                        disabled={index === 0}
+                        className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                      >
+                        Move up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveAboutImage(index, 1)}
+                        disabled={index === aboutImages.length - 1}
+                        className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                      >
+                        Move down
+                      </button>
+                      <label className="text-xs px-3 py-2 rounded-lg border border-gray-200 cursor-pointer">
+                        Replace
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) => void handleAboutImageUpload(event, index)}
+                          disabled={uploadingAbout}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteAboutImage(index)}
+                        disabled={deletingAbout}
+                        className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {aboutImages.length === 0 && (
+                  <p className="text-sm text-gray-500">No about images yet. Upload at least two to create the slideshow.</p>
+                )}
+              </div>
+
               <div className="space-y-3">
-                <label className="block text-sm font-semibold text-brand-blue">Upload Image</label>
+                <label className="block text-sm font-semibold text-brand-blue">Add Image</label>
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleAboutImageUpload}
+                  onChange={(event) => void handleAboutImageUpload(event)}
                   disabled={uploadingAbout}
                   className="w-full text-sm"
                 />
                 {uploadingAbout && <p className="text-xs text-gray-500">Uploading...</p>}
-                
-                {aboutImage && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteAboutImage}
-                    disabled={deletingAbout}
-                    className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    {deletingAbout ? "Deleting..." : "Delete about image"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => void saveAboutImageOrder()}
+                  disabled={savingFrontpageTerms}
+                  className="w-full text-xs px-3 py-2 rounded-lg font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Save order
+                </button>
+              </div>
+            </div>
+
+            {/* Front page terms */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-brand-blue mb-3">Front page T&apos;s & C&apos;s section</h2>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={frontpageTermsTitle}
+                  onChange={(event) => setFrontpageTermsTitle(event.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                  placeholder="Section title"
+                />
+                <textarea
+                  value={frontpageTermsContent}
+                  onChange={(event) => setFrontpageTermsContent(event.target.value)}
+                  rows={6}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                  placeholder="Enter terms text"
+                />
+                {frontpageTermsError && <p className="text-sm text-red-600">{frontpageTermsError}</p>}
+                <button
+                  type="button"
+                  onClick={() => void handleSaveFrontpageTerms()}
+                  disabled={savingFrontpageTerms}
+                  className="w-full bg-brand-blue text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-70"
+                >
+                  {savingFrontpageTerms ? "Saving..." : "Save T's & C's"}
+                </button>
               </div>
             </div>
 

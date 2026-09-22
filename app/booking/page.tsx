@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getAgeValidation, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
 import { TERMS_ACCEPTANCE_LABEL, TERMS_AND_CONDITIONS } from "@/lib/terms-and-conditions";
@@ -9,6 +10,14 @@ import { TERMS_ACCEPTANCE_LABEL, TERMS_AND_CONDITIONS } from "@/lib/terms-and-co
 interface DurationOption {
   mins: number;
   price: number;
+}
+
+interface CustomerSessionResponse {
+  customer: {
+    id: string;
+    email: string;
+    email_verified: boolean;
+  } | null;
 }
 
 interface TreatmentOption {
@@ -80,6 +89,8 @@ function BookingInner() {
   const [duration, setDuration] = useState<number | null>(null);
 
   const [bookingWindowDays, setBookingWindowDays] = useState(30);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isCustomerVerified, setIsCustomerVerified] = useState(false);
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [date, setDate] = useState("");
@@ -129,6 +140,15 @@ function BookingInner() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        const sessionRes = await fetch("/api/auth/me");
+        if (sessionRes.ok) {
+          const sessionData = (await sessionRes.json()) as CustomerSessionResponse;
+          if (sessionData.customer?.email) {
+            setClientEmail(sessionData.customer.email);
+            setIsCustomerVerified(Boolean(sessionData.customer.email_verified));
+          }
+        }
+
         // Load treatments
         const treatmentsRes = await fetch("/api/treatments");
         if (treatmentsRes.ok) {
@@ -157,6 +177,7 @@ function BookingInner() {
       } catch (err) {
         console.error("Failed to load data:", err);
       } finally {
+        setAuthLoading(false);
         setTreatmentsLoading(false);
       }
     };
@@ -181,13 +202,9 @@ function BookingInner() {
     client_phone: clientPhone,
     client_address: clientAddress,
     client_postcode: distanceCheck?.normalizedPostcode || normalizePostcode(clientPostcode),
-    emergency_name: "",
-    emergency_relationship: "",
-    emergency_phone: "",
     medical_conditions: medicalConditions,
-    medical_notes: [medicalNotes.trim(), additionalInfo.trim() ? `Additional information: ${additionalInfo.trim()}` : ""]
-      .filter(Boolean)
-      .join("\n\n"),
+    medical_notes: medicalNotes.trim(),
+    additional_information: additionalInfo.trim(),
     injury_recent: injuryRecent ?? false,
     injury_recent_notes: injuryRecentNotes,
     injury_previous: injuryPrevious ?? false,
@@ -632,6 +649,7 @@ function BookingInner() {
         {step === 2 && (
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-6">Select Date & Time</h2>
+            <p className="text-sm text-gray-600 mb-4">Bookings can be made {bookingWindowDays} days in advance.</p>
             
             {/* Calendar */}
             <div className="mb-6 bg-white border-2 border-gray-200 rounded-lg p-6">
@@ -719,8 +737,12 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
+                    readOnly={label === "Email Address"}
                     className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                   />
+                  {label === "Email Address" && (
+                    <p className="mt-1 text-xs text-gray-500">Email comes from your verified account.</p>
+                  )}
                   {label === "Home Address" && (
                     <p className="mt-2 text-xs text-gray-700">
                       The massage visit is at your home/selected location, so please make sure all details are correct
@@ -782,7 +804,9 @@ function BookingInner() {
                   !clientPostcode ||
                   !ageValidation.isAdult ||
                   checkingDistance ||
-                  !distanceCheck?.withinRange
+                  !distanceCheck?.withinRange ||
+                  authLoading ||
+                  !isCustomerVerified
                 }
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -940,6 +964,11 @@ function BookingInner() {
         {step === 7 && selectedTreatment && duration && (
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-6">Confirm & Pay</h2>
+            {!authLoading && !isCustomerVerified && (
+              <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                Please <Link href="/account" className="font-semibold underline">log in and verify your email</Link> before booking.
+              </div>
+            )}
             <div className="bg-brand-blue/5 border border-brand-blue/15 rounded-2xl p-6 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Treatment</span>

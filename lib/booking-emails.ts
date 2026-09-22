@@ -11,9 +11,7 @@ interface BookingEmailPayload {
   client_phone: string;
   client_address: string;
   client_postcode: string;
-  emergency_name: string;
-  emergency_relationship: string;
-  emergency_phone: string;
+  additional_information?: string | null;
   medical_conditions: string[];
   medical_notes: string;
   injury_recent: boolean;
@@ -59,11 +57,9 @@ export async function sendBookingEmails(booking: BookingEmailPayload) {
             <p><strong>Address:</strong> ${booking.client_address}, ${booking.client_postcode}</p>
           </div>
 
-          <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Emergency Contact</h3>
+          <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Additional Information</h3>
           <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            <p><strong>Name:</strong> ${booking.emergency_name}</p>
-            <p><strong>Relationship:</strong> ${booking.emergency_relationship}</p>
-            <p><strong>Phone:</strong> ${booking.emergency_phone}</p>
+            <p>${booking.additional_information || "Not provided"}</p>
           </div>
 
           <h3 style="color: #003366; margin-top: 20px; margin-bottom: 10px;">Medical History</h3>

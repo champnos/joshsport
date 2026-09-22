@@ -11,6 +11,7 @@ create table if not exists treatments (
 
 create table if not exists bookings (
   id uuid primary key default gen_random_uuid(),
+  customer_id uuid,
   -- Stored as text to support both static slugs and future Supabase UUIDs
   treatment_id text,
   treatment_name text,
@@ -25,6 +26,7 @@ create table if not exists bookings (
   emergency_name text,
   emergency_relationship text,
   emergency_phone text,
+  additional_information text,
   medical_conditions jsonb default '[]'::jsonb,
   medical_notes text,
   injury_recent boolean default false,
@@ -40,6 +42,46 @@ create table if not exists bookings (
   status text default 'pending_payment',
   created_at timestamptz default now()
 );
+
+create table if not exists customers (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  full_name text,
+  password_hash text not null,
+  email_verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists customer_email_verification_tokens (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists customer_password_reset_tokens (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'bookings_customer_id_fkey'
+  ) then
+    alter table bookings
+      add constraint bookings_customer_id_fkey
+      foreign key (customer_id) references customers(id) on delete set null;
+  end if;
+end;
+$$;
 
 create table if not exists vouchers (
   id uuid primary key default gen_random_uuid(),

@@ -29,28 +29,49 @@ const benefits = [
 ];
 
 export default function Home() {
-  const [heroImage, setHeroImage] = useState<string | null>(null);
-  const [aboutImage, setAboutImage] = useState<string | null>(null);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [aboutImages, setAboutImages] = useState<string[]>([]);
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
+  const [aboutImageIndex, setAboutImageIndex] = useState(0);
+  const [frontpageTerms, setFrontpageTerms] = useState<{ title: string; content: string }>({
+    title: "T's & C's",
+    content: "Please contact us directly for the latest booking terms and conditions.",
+  });
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [heroRes, aboutRes, treatmentsRes] = await Promise.all([
+        const [heroRes, aboutRes, termsRes, treatmentsRes] = await Promise.all([
           fetch("/api/hero-image"),
           fetch("/api/about-image"),
+          fetch("/api/frontpage-terms"),
           fetch("/api/treatments"),
         ]);
 
         if (heroRes.ok) {
           const heroData = await heroRes.json();
-          setHeroImage(heroData.image_url || null);
+          const images = Array.isArray(heroData.images)
+            ? heroData.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+            : heroData.image_url ? [heroData.image_url] : [];
+          setHeroImages(images);
         }
 
         if (aboutRes.ok) {
           const aboutData = await aboutRes.json();
-          setAboutImage(aboutData.image_url || null);
+          const images = Array.isArray(aboutData.images)
+            ? aboutData.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+            : aboutData.image_url ? [aboutData.image_url] : [];
+          setAboutImages(images);
+        }
+
+        if (termsRes.ok) {
+          const termsData = await termsRes.json();
+          setFrontpageTerms({
+            title: termsData.title || "T's & C's",
+            content: termsData.content || "",
+          });
         }
 
         if (treatmentsRes.ok) {
@@ -58,8 +79,12 @@ export default function Home() {
           setTreatments(treatmentsData.filter((t: Treatment) => t.active));
         }
       } catch {
-        setHeroImage(null);
-        setAboutImage(null);
+        setHeroImages([]);
+        setAboutImages([]);
+        setFrontpageTerms({
+          title: "T's & C's",
+          content: "Please contact us directly for the latest booking terms and conditions.",
+        });
         setTreatments([]);
       } finally {
         setLoading(false);
@@ -68,6 +93,34 @@ export default function Home() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setHeroImageIndex((current) => (current + 1) % heroImages.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [heroImages]);
+
+  useEffect(() => {
+    if (heroImageIndex >= heroImages.length) {
+      setHeroImageIndex(0);
+    }
+  }, [heroImageIndex, heroImages.length]);
+
+  useEffect(() => {
+    if (aboutImages.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setAboutImageIndex((current) => (current + 1) % aboutImages.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [aboutImages]);
+
+  useEffect(() => {
+    if (aboutImageIndex >= aboutImages.length) {
+      setAboutImageIndex(0);
+    }
+  }, [aboutImageIndex, aboutImages.length]);
 
   return (
     <div>
@@ -106,8 +159,8 @@ export default function Home() {
           <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-white/10 border-2 border-white/25 shadow-md overflow-hidden">
             {loading ? (
               <div className="text-white/60">Loading...</div>
-            ) : heroImage ? (
-              <img src={heroImage} alt="Josh Maggs" className="w-full h-full object-cover" />
+            ) : heroImages[heroImageIndex] ? (
+              <img src={heroImages[heroImageIndex]} alt="Josh Maggs" className="w-full h-full object-cover" />
             ) : (
               <div className="text-center text-white/60 text-sm">
                 <p>[Josh&apos;s Photo]</p>
@@ -118,13 +171,20 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="bg-brand-gold/10 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl rounded-2xl border border-brand-gold/30 bg-white p-6 text-gray-800">
+          <h2 className="text-2xl font-bold text-brand-blue">{frontpageTerms.title}</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{frontpageTerms.content}</p>
+        </div>
+      </section>
+
       <section className="bg-white py-8 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
           <div className="flex min-h-[400px] items-center justify-center rounded-2xl bg-gray-50 shadow-sm overflow-hidden">
             {loading ? (
               <div className="text-gray-400">Loading...</div>
-            ) : aboutImage ? (
-              <img src={aboutImage} alt="About Josh Maggs" className="w-full h-full object-cover" />
+            ) : aboutImages[aboutImageIndex] ? (
+              <img src={aboutImages[aboutImageIndex]} alt="About Josh Maggs" className="w-full h-full object-cover" />
             ) : (
               <div className="text-center text-gray-400 text-sm">
                 <p>[About Josh]</p>

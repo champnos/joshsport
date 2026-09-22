@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { BookingValidationError, validateAndPrepareBooking } from "@/lib/booking-flow";
 import { BOOKING_CHECKOUT_TOKEN_TTL_MS, createBookingCheckoutTokenForBooking } from "@/lib/booking-checkout-token";
+import { getAuthenticatedCustomer } from "@/lib/customer-session";
 
 function normalizePhone(phoneValue: unknown) {
   const rawPhone = typeof phoneValue === "string" ? phoneValue.trim() : "";
@@ -63,15 +64,34 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const authenticatedCustomer = await getAuthenticatedCustomer(request);
+    if (!authenticatedCustomer) {
+      return NextResponse.json({ error: "Please log in to create a booking." }, { status: 401 });
+    }
+    if (!authenticatedCustomer.email_verified_at) {
+      return NextResponse.json({ error: "Please verify your email before booking." }, { status: 403 });
+    }
+
     const body = await request.json();
+    const requestedClientEmail = normalizeEmail(body?.client_email);
+    if (requestedClientEmail && requestedClientEmail !== authenticatedCustomer.email) {
+      return NextResponse.json(
+        { error: "The booking email must match your verified account email." },
+        { status: 400 },
+      );
+    }
+
+    body.client_email = authenticatedCustomer.email;
+    body.customer_id = authenticatedCustomer.id;
+
     const pendingCutoff = new Date(Date.now() - BOOKING_CHECKOUT_TOKEN_TTL_MS).toISOString();
     const requestedTreatmentId = typeof body?.treatment_id === "string" ? body.treatment_id.trim() : "";
     const requestedDate = typeof body?.date === "string" ? body.date.trim() : "";
     const requestedStartTime = typeof body?.start_time === "string" ? body.start_time.trim() : "";
     const requestedDuration = Number(body?.duration_mins);
-    const requestedClientEmail = normalizeEmail(body?.client_email);
+    const requestedCustomerEmail = normalizeEmail(body?.client_email);
     const requestedClientPhone = normalizePhone(body?.client_phone);
     const requestedBooking = {
       treatmentId: requestedTreatmentId,
@@ -93,7 +113,7 @@ export async function POST(request: Request) {
       const sameCustomerPendingBookings = existingPendingBookings.filter(
         (booking) =>
           phoneMatches(normalizePhone(booking.client_phone ?? ""), requestedClientPhone) ||
-          (requestedClientEmail !== "" && normalizedEmailFromBooking(booking) === requestedClientEmail),
+          (requestedCustomerEmail !== "" && normalizedEmailFromBooking(booking) === requestedCustomerEmail),
       );
       const exactPendingBooking = sameCustomerPendingBookings.find((booking) => matchesRequestedBooking(booking, requestedBooking));
 

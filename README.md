@@ -11,6 +11,7 @@ A complete Next.js 14 App Router website for Josh Maggs / Maggs Massage Therapy 
 
 ## Features
 - Mobile-first landing page with brand colours
+- Customer accounts (register/login/logout/password reset) with email verification before booking
 - Treatments page with all 4 treatments and full pricing
 - 7-step booking flow (treatment → date/time → details → emergency contact → medical history → injury history → confirm)
 - Availability checking with 30-min slot blocking (9am–8pm, up to 2 weeks in advance)
@@ -39,7 +40,10 @@ Edit `.env.local`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ADMIN_PASSWORD=your-secure-password
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+CUSTOMER_AUTH_SECRET=your-64-char-hex-secret
 BOOKING_CHECKOUT_TOKEN_SECRET=your-64-char-hex-secret
 BOOKING_CONFIRMATION_SECRET=your-64-char-hex-secret
 ```
@@ -58,6 +62,7 @@ npm run dev
 
 Visit:
 - `http://localhost:3000` — website
+- `http://localhost:3000/account` — customer account login/registration
 - `http://localhost:3000/admin` — admin panel
 
 ## Deploying to Vercel

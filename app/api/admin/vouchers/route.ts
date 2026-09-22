@@ -5,7 +5,7 @@ import { normalizeVoucherCode } from "@/lib/vouchers";
 
 function parseDiscountAmountPence(value: unknown) {
   const parsed = Number.parseFloat(String(value));
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return Math.round(parsed * 100);
 }
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Voucher code is required." }, { status: 400 });
     }
     if (discountAmountPence === null) {
-      return NextResponse.json({ error: "Discount amount must be a valid number in GBP." }, { status: 400 });
+      return NextResponse.json({ error: "Discount amount must be a valid amount above £0.00." }, { status: 400 });
     }
     if (expiresAt === "invalid") {
       return NextResponse.json({ error: "Expiry date is invalid." }, { status: 400 });
@@ -83,6 +83,21 @@ export async function POST(request: NextRequest) {
       if (error.code === "23505") {
         return NextResponse.json({ error: "Voucher code already exists." }, { status: 409 });
       }
+      if (error.code === "23514" && error.message?.includes("vouchers_discount_percentage_check")) {
+        return NextResponse.json(
+          {
+            error:
+              "Voucher amount was blocked by an outdated database constraint. Run the voucher discount constraint migration and try again.",
+          },
+          { status: 400 },
+        );
+      }
+      console.error("Voucher insert failed with DB error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
       throw error;
     }
 

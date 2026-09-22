@@ -7,6 +7,11 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "Josh Maggs | MMT – Mobile Sports Massage Therapy",
   description: "Professional mobile sports massage therapy in Bristol & Bath. Book online today.",
+  icons: {
+    icon: "/favicon-mmt.png",
+    shortcut: "/favicon-mmt.png",
+    apple: "/favicon-mmt.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
