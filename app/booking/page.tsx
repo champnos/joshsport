@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
@@ -65,6 +65,31 @@ interface VoucherValidationResponse {
   error?: string;
 }
 
+interface BookingDraft {
+  step: number;
+  treatmentId: string;
+  duration: number | null;
+  date: string;
+  startTime: string;
+  clientName: string;
+  clientDob: string;
+  clientPhone: string;
+  clientAddress: string;
+  clientPostcode: string;
+  medicalConditions: string[];
+  medicalNotes: string;
+  injuryRecent: boolean | null;
+  injuryRecentNotes: string;
+  injuryPrevious: boolean | null;
+  injuryPreviousNotes: string;
+  additionalInfo: string;
+  voucherCodeInput: string;
+  termsAccepted: boolean;
+}
+
+const BOOKING_DRAFT_STORAGE_KEY = "bookingDraft";
+const BOOKING_REDIRECT_PATH = "/booking";
+
 function getMinDate() {
   return new Date().toISOString().split("T")[0];
 }
@@ -83,6 +108,7 @@ function formatPriceFromPence(value: number) {
 const STEPS = ["Treatment", "Date & Time", "Your Details", "Medical History", "Injury History", "Additional Information", "Confirm & Pay"];
 
 function BookingInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [treatments, setTreatments] = useState<TreatmentOption[]>([]);
@@ -93,6 +119,7 @@ function BookingInner() {
 
   const [bookingWindowDays, setBookingWindowDays] = useState(30);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isCustomerAuthenticated, setIsCustomerAuthenticated] = useState(false);
   const [isCustomerVerified, setIsCustomerVerified] = useState(false);
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -132,6 +159,62 @@ function BookingInner() {
   const outOfRangeAlertedPostcodeRef = useRef("");
   const previousFocusedElementRef = useRef<HTMLElement | null>(null);
   const termsDialogRef = useRef<HTMLDivElement | null>(null);
+  const hasRedirectedForAuthRef = useRef(false);
+  const hasRestoredDraftRef = useRef(false);
+  const latestBookingDraftRef = useRef<BookingDraft | null>(null);
+
+  const restoreBookingDraft = useCallback(() => {
+    if (hasRestoredDraftRef.current) return;
+    hasRestoredDraftRef.current = true;
+
+    try {
+      const storedDraft = window.sessionStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
+      if (!storedDraft) return;
+
+      const draft = JSON.parse(storedDraft) as Partial<BookingDraft>;
+      setStep(typeof draft.step === "number" && draft.step >= 1 && draft.step <= STEPS.length ? draft.step : 1);
+      setTreatmentId(typeof draft.treatmentId === "string" ? draft.treatmentId : "");
+      setDuration(typeof draft.duration === "number" ? draft.duration : null);
+      setDate(typeof draft.date === "string" ? draft.date : "");
+      setStartTime(typeof draft.startTime === "string" ? draft.startTime : "");
+      setClientName(typeof draft.clientName === "string" ? draft.clientName : "");
+      setClientDob(typeof draft.clientDob === "string" ? draft.clientDob : "");
+      setClientPhone(typeof draft.clientPhone === "string" ? draft.clientPhone : "");
+      setClientAddress(typeof draft.clientAddress === "string" ? draft.clientAddress : "");
+      setClientPostcode(typeof draft.clientPostcode === "string" ? draft.clientPostcode : "");
+      setMedicalConditions(Array.isArray(draft.medicalConditions) ? draft.medicalConditions.filter((value): value is string => typeof value === "string") : []);
+      setMedicalNotes(typeof draft.medicalNotes === "string" ? draft.medicalNotes : "");
+      setInjuryRecent(typeof draft.injuryRecent === "boolean" ? draft.injuryRecent : null);
+      setInjuryRecentNotes(typeof draft.injuryRecentNotes === "string" ? draft.injuryRecentNotes : "");
+      setInjuryPrevious(typeof draft.injuryPrevious === "boolean" ? draft.injuryPrevious : null);
+      setInjuryPreviousNotes(typeof draft.injuryPreviousNotes === "string" ? draft.injuryPreviousNotes : "");
+      setAdditionalInfo(typeof draft.additionalInfo === "string" ? draft.additionalInfo : "");
+      setVoucherCodeInput(typeof draft.voucherCodeInput === "string" ? draft.voucherCodeInput : "");
+      setTermsAccepted(Boolean(draft.termsAccepted));
+    } catch (storageError) {
+      console.warn("Unable to restore booking draft:", storageError);
+    }
+  }, []);
+
+  const persistBookingDraft = useCallback(() => {
+    try {
+      if (!latestBookingDraftRef.current) return;
+      window.sessionStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify(latestBookingDraftRef.current));
+    } catch (storageError) {
+      console.warn("Unable to persist booking draft:", storageError);
+    }
+  }, []);
+
+  const redirectToLogin = useCallback(
+    (reason: "booking" | "session-expired") => {
+      if (hasRedirectedForAuthRef.current) return;
+      hasRedirectedForAuthRef.current = true;
+
+      persistBookingDraft();
+      router.replace(`/account?redirect=${encodeURIComponent(BOOKING_REDIRECT_PATH)}&reason=${reason}`);
+    },
+    [persistBookingDraft, router],
+  );
 
   // Load treatments, settings, and working dates on mount
   useEffect(() => {
@@ -144,56 +227,65 @@ function BookingInner() {
     const loadData = async () => {
       try {
         const sessionRes = await fetch("/api/auth/me");
-        if (sessionRes.ok) {
-          const sessionData = (await sessionRes.json()) as CustomerSessionResponse;
-          if (sessionData.customer?.email) {
-            setClientEmail(sessionData.customer.email);
-            setIsCustomerVerified(Boolean(sessionData.customer.email_verified));
-
-            const profileRes = await fetch("/api/account/profile");
-            if (profileRes.ok) {
-              const profileData = (await profileRes.json()) as CustomerProfileResponse;
-              const profile = profileData.profile;
-              if (profile) {
-                setClientName(profile.full_name ?? "");
-                setClientPhone(profile.phone ?? "");
-                setClientAddress(profile.address ?? "");
-                setClientPostcode(profile.postcode ?? "");
-                setClientDob(profile.date_of_birth ?? "");
-                setMedicalConditions(Array.isArray(profile.medical_conditions) ? profile.medical_conditions : []);
-                setMedicalNotes(profile.medical_notes ?? "");
-                setInjuryRecent(typeof profile.injury_recent === "boolean" ? profile.injury_recent : null);
-                setInjuryRecentNotes(profile.injury_recent_notes ?? "");
-                setInjuryPrevious(typeof profile.injury_previous === "boolean" ? profile.injury_previous : null);
-                setInjuryPreviousNotes(profile.injury_previous_notes ?? "");
-                setAdditionalInfo(profile.additional_information ?? "");
-              }
-            }
-          } else {
-            setClientEmail("");
-            setIsCustomerVerified(false);
-          }
-        } else {
+        if (!sessionRes.ok) {
           setClientEmail("");
+          setIsCustomerAuthenticated(false);
           setIsCustomerVerified(false);
+          redirectToLogin("booking");
+          return;
         }
 
-        // Load treatments
-        const treatmentsRes = await fetch("/api/treatments");
+        const sessionData = (await sessionRes.json()) as CustomerSessionResponse;
+        if (!sessionData.customer?.email) {
+          setClientEmail("");
+          setIsCustomerAuthenticated(false);
+          setIsCustomerVerified(false);
+          redirectToLogin("booking");
+          return;
+        }
+
+        setClientEmail(sessionData.customer.email);
+        setIsCustomerAuthenticated(true);
+        setIsCustomerVerified(Boolean(sessionData.customer.email_verified));
+
+        if (!sessionData.customer.email_verified) return;
+
+        const [profileRes, treatmentsRes, settingsRes, datesRes] = await Promise.all([
+          fetch("/api/account/profile"),
+          fetch("/api/treatments"),
+          fetch("/api/admin/settings"),
+          fetch("/api/working-dates"),
+        ]);
+
+        if (profileRes.ok) {
+          const profileData = (await profileRes.json()) as CustomerProfileResponse;
+          const profile = profileData.profile;
+          if (profile) {
+            setClientName(profile.full_name ?? "");
+            setClientPhone(profile.phone ?? "");
+            setClientAddress(profile.address ?? "");
+            setClientPostcode(profile.postcode ?? "");
+            setClientDob(profile.date_of_birth ?? "");
+            setMedicalConditions(Array.isArray(profile.medical_conditions) ? profile.medical_conditions : []);
+            setMedicalNotes(profile.medical_notes ?? "");
+            setInjuryRecent(typeof profile.injury_recent === "boolean" ? profile.injury_recent : null);
+            setInjuryRecentNotes(profile.injury_recent_notes ?? "");
+            setInjuryPrevious(typeof profile.injury_previous === "boolean" ? profile.injury_previous : null);
+            setInjuryPreviousNotes(profile.injury_previous_notes ?? "");
+            setAdditionalInfo(profile.additional_information ?? "");
+          }
+        }
+
         if (treatmentsRes.ok) {
           const treatmentsData = await treatmentsRes.json();
           setTreatments(treatmentsData);
         }
 
-        // Load booking window settings
-        const settingsRes = await fetch("/api/admin/settings");
         if (settingsRes.ok) {
           const settingsData = await settingsRes.json();
           setBookingWindowDays(settingsData.booking_window_days || 30);
         }
 
-        // Load working dates
-        const datesRes = await fetch("/api/working-dates");
         if (datesRes.ok) {
           const datesData = await datesRes.json();
           const availableDates = Array.isArray(datesData.hours)
@@ -203,15 +295,21 @@ function BookingInner() {
             : datesData.dates || [];
           setWorkingDates(new Set(availableDates));
         }
+
+        restoreBookingDraft();
       } catch (err) {
         console.error("Failed to load data:", err);
+        setClientEmail("");
+        setIsCustomerAuthenticated(false);
+        setIsCustomerVerified(false);
+        redirectToLogin("booking");
       } finally {
         setAuthLoading(false);
         setTreatmentsLoading(false);
       }
     };
     loadData();
-  }, []);
+  }, [redirectToLogin, restoreBookingDraft]);
 
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
   const selectedPrice = selectedTreatment?.durations.find((d) => d.mins === duration)?.price || 0;
@@ -244,11 +342,68 @@ function BookingInner() {
   const ageValidation = getAgeValidation(clientDob);
 
   useEffect(() => {
-    if (selectedTreatment && selectedTreatment.durations.length === 1) {
-      setDuration(selectedTreatment.durations[0].mins);
-    } else {
+    latestBookingDraftRef.current = {
+      step,
+      treatmentId,
+      duration,
+      date,
+      startTime,
+      clientName,
+      clientDob,
+      clientPhone,
+      clientAddress,
+      clientPostcode,
+      medicalConditions,
+      medicalNotes,
+      injuryRecent,
+      injuryRecentNotes,
+      injuryPrevious,
+      injuryPreviousNotes,
+      additionalInfo,
+      voucherCodeInput,
+      termsAccepted,
+    };
+  }, [
+    additionalInfo,
+    clientAddress,
+    clientDob,
+    clientName,
+    clientPhone,
+    clientPostcode,
+    date,
+    duration,
+    injuryPrevious,
+    injuryPreviousNotes,
+    injuryRecent,
+    injuryRecentNotes,
+    medicalConditions,
+    medicalNotes,
+    startTime,
+    step,
+    termsAccepted,
+    treatmentId,
+    voucherCodeInput,
+  ]);
+
+  useEffect(() => {
+    if (authLoading || !isCustomerAuthenticated || !isCustomerVerified) return;
+    persistBookingDraft();
+  }, [authLoading, isCustomerAuthenticated, isCustomerVerified, persistBookingDraft]);
+
+  useEffect(() => {
+    if (!selectedTreatment) {
       setDuration(null);
+      return;
     }
+
+    if (selectedTreatment.durations.length === 1) {
+      setDuration(selectedTreatment.durations[0].mins);
+      return;
+    }
+
+    setDuration((currentDuration) =>
+      selectedTreatment.durations.some((option) => option.mins === currentDuration) ? currentDuration : null,
+    );
   }, [selectedTreatment]);
 
   const loadSlots = useCallback(async () => {
@@ -479,6 +634,16 @@ function BookingInner() {
 
       const bookingData = await bookingRes.json();
       if (!bookingRes.ok) {
+        if (bookingRes.status === 401) {
+          setSubmitting(false);
+          redirectToLogin("session-expired");
+          return;
+        }
+
+        if (bookingRes.status === 403) {
+          setIsCustomerVerified(false);
+        }
+
         setError(bookingData.error ?? "Unable to start payment. Please try again.");
         setSubmitting(false);
         return;
@@ -585,6 +750,58 @@ function BookingInner() {
     month: "long",
     year: "numeric",
   });
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center justify-center px-4 text-center text-brand-blue">
+          Checking your account before booking...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isCustomerAuthenticated) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center justify-center px-4 text-center text-brand-blue">
+          Redirecting you to log in...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isCustomerVerified) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
+        <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center shadow-sm">
+            <h1 className="text-2xl font-bold text-brand-blue">Verify your email before booking</h1>
+            <p className="mt-3 text-sm text-amber-900">
+              You need a verified customer account before you can continue with a booking.
+            </p>
+            <p className="mt-2 text-sm text-amber-900">
+              Please check your verification email, then come back and log in again. If your verification link has expired, create your account again to receive a fresh email.
+            </p>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link
+                href="/account"
+                className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                Back to account
+              </Link>
+              <Link
+                href="/account/register"
+                className="rounded-lg border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5"
+              >
+                Create account again
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
@@ -761,12 +978,24 @@ function BookingInner() {
                     readOnly={label === "Email Address"}
                     className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                   />
-                  {label === "Email Address" && (
+                  {label === "Email Address" && clientEmail && (
                     <p className="mt-1 text-xs text-gray-500">Email comes from your verified account.</p>
                   )}
+                  {label === "Email Address" && !clientEmail && (
+                     <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
+                       <p>Your email could not be loaded from your account. Please log in again to continue your booking.</p>
+                       <button
+                         type="button"
+                         onClick={() => redirectToLogin("session-expired")}
+                         className="mt-3 rounded-lg bg-brand-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-90"
+                       >
+                         Log in again
+                       </button>
+                     </div>
+                  )}
                   {label === "Home Address" && (
-                    <p className="mt-2 text-xs text-gray-700">
-                      The massage visit is at your home/selected location, so please make sure all details are correct
+                     <p className="mt-2 text-xs text-gray-700">
+                       The massage visit is at your home/selected location, so please make sure all details are correct
                     </p>
                   )}
                 </div>

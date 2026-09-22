@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
 import { hasNonNoneMedicalConditions, toggleMedicalCondition } from "@/lib/medical-conditions";
 
@@ -44,7 +45,9 @@ const EMPTY_PROFILE: CustomerProfile = {
   additional_information: "",
 };
 
-export default function AccountPage() {
+function AccountInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [customer, setCustomer] = useState<CustomerSession | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
@@ -56,6 +59,10 @@ export default function AccountPage() {
 
   const [profile, setProfile] = useState<CustomerProfile>(EMPTY_PROFILE);
   const [profileMessage, setProfileMessage] = useState("");
+  const redirectPath = searchParams.get("redirect");
+  const redirectTarget =
+    redirectPath && redirectPath.startsWith("/") && !redirectPath.startsWith("//") ? redirectPath : null;
+  const redirectReason = searchParams.get("reason");
 
   const loadProfile = useCallback(async () => {
     const response = await fetch("/api/account/profile");
@@ -110,6 +117,9 @@ export default function AccountPage() {
 
       setLoginPassword("");
       await loadSession();
+      if (redirectTarget) {
+        router.push(redirectTarget);
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -172,6 +182,16 @@ export default function AccountPage() {
         <div className="mx-auto max-w-md rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
           <h1 className="text-2xl font-bold text-brand-blue">Log in</h1>
           <p className="text-sm text-gray-600">Access your account to manage your profile and bookings.</p>
+          {redirectReason === "booking" && (
+            <div className="rounded-lg border border-brand-gold/40 bg-brand-gold/10 px-3 py-2 text-sm text-brand-blue">
+              Please log in before starting your booking.
+            </div>
+          )}
+          {redirectReason === "session-expired" && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              Your booking session expired. Please log in again to continue your booking.
+            </div>
+          )}
 
           <form className="space-y-3" onSubmit={handleLogin}>
             <input
@@ -203,12 +223,18 @@ export default function AccountPage() {
           <div className="space-y-2 text-sm">
             <p>
               Don&apos;t have an account?{" "}
-              <Link className="font-semibold text-brand-blue" href="/account/register">
+              <Link
+                className="font-semibold text-brand-blue"
+                href={redirectTarget ? `/account/register?redirect=${encodeURIComponent(redirectTarget)}` : "/account/register"}
+              >
                 Sign up
               </Link>
             </p>
             <p>
-              <Link className="font-semibold text-brand-blue" href="/account/forgot-password">
+              <Link
+                className="font-semibold text-brand-blue"
+                href={redirectTarget ? `/account/forgot-password?redirect=${encodeURIComponent(redirectTarget)}` : "/account/forgot-password"}
+              >
                 Forgot password?
               </Link>
             </p>
@@ -378,5 +404,13 @@ export default function AccountPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">Loading account...</div>}>
+      <AccountInner />
+    </Suspense>
   );
 }
