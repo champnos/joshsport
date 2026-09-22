@@ -1,4 +1,15 @@
-export const TERMS_AND_CONDITIONS = {
+export interface TermsAndConditionsSection {
+  title: string;
+  bullets: string[];
+}
+
+export interface TermsAndConditions {
+  title: string;
+  intro: string;
+  sections: TermsAndConditionsSection[];
+}
+
+export const DEFAULT_TERMS_AND_CONDITIONS: TermsAndConditions = {
   title: "MMT Massage Terms & Conditions",
   intro:
     "Please read these terms carefully before confirming your appointment. They are designed to protect both the client and therapist to support a safe and professional mobile massage service.",
@@ -106,6 +117,45 @@ export const TERMS_AND_CONDITIONS = {
       ],
     },
   ],
-} as const;
+};
+
+export const TERMS_AND_CONDITIONS = DEFAULT_TERMS_AND_CONDITIONS;
 
 export const TERMS_ACCEPTANCE_LABEL = "I have read and accept the terms and conditions";
+
+function normalizeSection(section: unknown): TermsAndConditionsSection | null {
+  if (!section || typeof section !== "object") return null;
+  const sectionRecord = section as Record<string, unknown>;
+
+  const title = typeof sectionRecord.title === "string" ? sectionRecord.title.trim() : "";
+  const bullets = Array.isArray(sectionRecord.bullets)
+    ? sectionRecord.bullets
+      .filter((bullet): bullet is string => typeof bullet === "string")
+      .map((bullet) => bullet.trim())
+      .filter((bullet) => bullet.length > 0)
+    : [];
+
+  if (!title || bullets.length === 0) return null;
+  return { title, bullets };
+}
+
+export function normalizeTermsAndConditions(value: unknown): TermsAndConditions | null {
+  if (!value || typeof value !== "object") return null;
+  const termsRecord = value as Record<string, unknown>;
+
+  const title = typeof termsRecord.title === "string" ? termsRecord.title.trim() : "";
+  const intro = typeof termsRecord.intro === "string" ? termsRecord.intro.trim() : "";
+  const sections = Array.isArray(termsRecord.sections)
+    ? termsRecord.sections
+      .map((section) => normalizeSection(section))
+      .filter((section): section is TermsAndConditionsSection => Boolean(section))
+    : [];
+
+  if (!title || !intro) return null;
+
+  return {
+    title,
+    intro,
+    sections,
+  };
+}
