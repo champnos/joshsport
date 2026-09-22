@@ -32,7 +32,7 @@ export default function AdminPage() {
   const [isAuthed, setIsAuthed] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState("");
-  const [activeTab, setActiveTab] = useState<"bookings" | "treatments" | "settings">("bookings");
+  const [activeTab, setActiveTab] = useState<"bookings" | "treatments" | "settings" | "terms">("bookings");
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loadingTreatments, setLoadingTreatments] = useState(false);
   const [savingTreatment, setSavingTreatment] = useState(false);
@@ -747,7 +747,7 @@ export default function AdminPage() {
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex gap-4 mb-8 flex-wrap">
-          {(["bookings", "treatments", "settings"] as const).map((tab) => (
+          {(["bookings", "treatments", "settings", "terms"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1006,158 +1006,6 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-lg font-bold text-brand-blue">Terms &amp; Conditions</h2>
-                  <p className="mt-1 text-sm text-gray-500">Edit the public /terms page and booking acceptance modal content.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addTermsSection}
-                  className="text-sm font-semibold text-brand-blue hover:text-brand-gold"
-                >
-                  + Add section
-                </button>
-              </div>
-
-              {loadingTerms && <p className="text-sm text-gray-500 mb-4">Loading terms and conditions…</p>}
-
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-brand-blue mb-2">Title</label>
-                  <input
-                    type="text"
-                    value={termsAndConditions.title}
-                    onChange={(e) => {
-                      setTermsSuccess("");
-                      setTermsAndConditions((prev) => ({ ...prev, title: e.target.value }));
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-brand-blue mb-2">Intro</label>
-                  <textarea
-                    value={termsAndConditions.intro}
-                    onChange={(e) => {
-                      setTermsSuccess("");
-                      setTermsAndConditions((prev) => ({ ...prev, intro: e.target.value }));
-                    }}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  {termsAndConditions.sections.map((section, sectionIndex) => (
-                    <div key={`${sectionIndex}-${section.title}`} className="rounded-lg border border-gray-200 p-4 space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <label className="text-sm font-semibold text-brand-blue">Section {sectionIndex + 1}</label>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => moveTermsSection(sectionIndex, -1)}
-                            disabled={sectionIndex === 0}
-                            className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                          >
-                            Move up
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveTermsSection(sectionIndex, 1)}
-                            disabled={sectionIndex === termsAndConditions.sections.length - 1}
-                            className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                          >
-                            Move down
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeTermsSection(sectionIndex)}
-                            className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-brand-blue mb-2">Section Title</label>
-                        <input
-                          type="text"
-                          value={section.title}
-                          onChange={(e) => updateTermsSection(sectionIndex, "title", e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-4">
-                          <label className="text-sm font-medium text-brand-blue">Bullets</label>
-                          <button
-                            type="button"
-                            onClick={() => addTermsBullet(sectionIndex)}
-                            className="text-sm font-semibold text-brand-blue hover:text-brand-gold"
-                          >
-                            + Add bullet
-                          </button>
-                        </div>
-
-                        {section.bullets.map((bullet, bulletIndex) => (
-                          <div key={`${sectionIndex}-${bulletIndex}`} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                            <textarea
-                              value={bullet}
-                              onChange={(e) => updateTermsBullet(sectionIndex, bulletIndex, e.target.value)}
-                              rows={2}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                            />
-                            <div className="flex flex-wrap gap-2 sm:flex-col">
-                              <button
-                                type="button"
-                                onClick={() => moveTermsBullet(sectionIndex, bulletIndex, -1)}
-                                disabled={bulletIndex === 0}
-                                className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                              >
-                                Move up
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveTermsBullet(sectionIndex, bulletIndex, 1)}
-                                disabled={bulletIndex === section.bullets.length - 1}
-                                className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                              >
-                                Move down
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeTermsBullet(sectionIndex, bulletIndex)}
-                                className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {termsError && <p className="text-sm text-red-600 mb-4">{termsError}</p>}
-              {termsSuccess && <p className="text-sm text-green-600 mb-4">{termsSuccess}</p>}
-
-              <button
-                type="button"
-                onClick={saveTerms}
-                disabled={savingTerms || loadingTerms}
-                className="w-full bg-brand-gold text-brand-blue font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-70"
-              >
-                {savingTerms ? "Saving..." : "Save changes"}
-              </button>
-            </div>
-
             {/* Hero Image Settings */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <h2 className="text-lg font-bold text-brand-blue mb-6">Hero Slideshow (Blue Section)</h2>
@@ -1322,6 +1170,160 @@ export default function AdminPage() {
                 <p className="text-brand-blue/80">Create and manage discount vouchers for checkout</p>
               </div>
             </Link>
+          </div>
+        )}
+
+        {activeTab === "terms" && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-brand-blue">Terms &amp; Conditions</h2>
+                <p className="mt-1 text-sm text-gray-500">Edit the public /terms page and booking acceptance modal content.</p>
+              </div>
+              <button
+                type="button"
+                onClick={addTermsSection}
+                className="text-sm font-semibold text-brand-blue hover:text-brand-gold"
+              >
+                + Add section
+              </button>
+            </div>
+
+            {loadingTerms && <p className="text-sm text-gray-500 mb-4">Loading terms and conditions…</p>}
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-brand-blue mb-2">Title</label>
+                <input
+                  type="text"
+                  value={termsAndConditions.title}
+                  onChange={(e) => {
+                    setTermsSuccess("");
+                    setTermsAndConditions((prev) => ({ ...prev, title: e.target.value }));
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-brand-blue mb-2">Intro</label>
+                <textarea
+                  value={termsAndConditions.intro}
+                  onChange={(e) => {
+                    setTermsSuccess("");
+                    setTermsAndConditions((prev) => ({ ...prev, intro: e.target.value }));
+                  }}
+                  rows={4}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-4">
+                {termsAndConditions.sections.map((section, sectionIndex) => (
+                  <div key={`${sectionIndex}-${section.title}`} className="rounded-lg border border-gray-200 p-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="text-sm font-semibold text-brand-blue">Section {sectionIndex + 1}</label>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => moveTermsSection(sectionIndex, -1)}
+                          disabled={sectionIndex === 0}
+                          className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                        >
+                          Move up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveTermsSection(sectionIndex, 1)}
+                          disabled={sectionIndex === termsAndConditions.sections.length - 1}
+                          className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                        >
+                          Move down
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeTermsSection(sectionIndex)}
+                          className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-brand-blue mb-2">Section Title</label>
+                      <input
+                        type="text"
+                        value={section.title}
+                        onChange={(e) => updateTermsSection(sectionIndex, "title", e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <label className="text-sm font-medium text-brand-blue">Bullets</label>
+                        <button
+                          type="button"
+                          onClick={() => addTermsBullet(sectionIndex)}
+                          className="text-sm font-semibold text-brand-blue hover:text-brand-gold"
+                        >
+                          + Add bullet
+                        </button>
+                      </div>
+
+                      {section.bullets.map((bullet, bulletIndex) => (
+                        <div key={`${sectionIndex}-${bulletIndex}`} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                          <textarea
+                            value={bullet}
+                            onChange={(e) => updateTermsBullet(sectionIndex, bulletIndex, e.target.value)}
+                            rows={2}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                          />
+                          <div className="flex flex-wrap gap-2 sm:flex-col">
+                            <button
+                              type="button"
+                              onClick={() => moveTermsBullet(sectionIndex, bulletIndex, -1)}
+                              disabled={bulletIndex === 0}
+                              className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                            >
+                              Move up
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveTermsBullet(sectionIndex, bulletIndex, 1)}
+                              disabled={bulletIndex === section.bullets.length - 1}
+                              className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                            >
+                              Move down
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeTermsBullet(sectionIndex, bulletIndex)}
+                              className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {termsError && <p className="text-sm text-red-600 mb-4">{termsError}</p>}
+            {termsSuccess && <p className="text-sm text-green-600 mb-4">{termsSuccess}</p>}
+
+            <button
+              type="button"
+              onClick={saveTerms}
+              disabled={savingTerms || loadingTerms}
+              className="w-full bg-brand-gold text-brand-blue font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-70"
+            >
+              {savingTerms ? "Saving..." : "Save changes"}
+            </button>
           </div>
         )}
       </div>
