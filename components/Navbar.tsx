@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { CUSTOMER_SESSION_CHANGED_EVENT } from "@/lib/customer-session-events";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -47,8 +48,11 @@ export default function Navbar() {
 
     void loadSession();
 
+    window.addEventListener(CUSTOMER_SESSION_CHANGED_EVENT, loadSession);
+
     return () => {
       cancelled = true;
+      window.removeEventListener(CUSTOMER_SESSION_CHANGED_EVENT, loadSession);
     };
   }, []);
 
