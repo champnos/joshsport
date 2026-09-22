@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
 import { getAgeValidation, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
+import { hasNonNoneMedicalConditions, toggleMedicalCondition } from "@/lib/medical-conditions";
 import { TERMS_ACCEPTANCE_LABEL, TERMS_AND_CONDITIONS } from "@/lib/terms-and-conditions";
 
 interface DurationOption {
@@ -62,22 +64,6 @@ interface VoucherValidationResponse {
   discount_amount_pence?: number;
   error?: string;
 }
-
-const MEDICAL_CONDITIONS_FALLBACK = [
-  "Heart conditions",
-  "High or low blood pressure",
-  "Diabetes",
-  "Epilepsy",
-  "Asthma",
-  "Cancer (current or past)",
-  "Blood disorders",
-  "Skin conditions",
-  "Varicose veins",
-  "Pregnancy or postnatal",
-  "Neurological conditions",
-  "Other",
-  "None of the above",
-];
 
 function getMinDate() {
   return new Date().toISOString().split("T")[0];
@@ -246,7 +232,7 @@ function BookingInner() {
     client_address: clientAddress,
     client_postcode: distanceCheck?.normalizedPostcode || normalizePostcode(clientPostcode),
     medical_conditions: medicalConditions,
-    medical_notes: medicalNotes.trim(),
+    medical_notes: hasNonNoneMedicalConditions(medicalConditions) ? medicalNotes.trim() : "",
     additional_information: additionalInfo.trim(),
     injury_recent: injuryRecent ?? false,
     injury_recent_notes: injuryRecentNotes,
@@ -358,17 +344,9 @@ function BookingInner() {
     };
   }, [clientPostcode]);
 
-  const toggleCondition = (cond: string) => {
-    setMedicalConditions((prev) => {
-      if (cond === "None of the above") {
-        return prev.includes(cond) ? [] : ["None of the above"];
-      }
-      const filtered = prev.filter((c) => c !== "None of the above");
-      return filtered.includes(cond) ? filtered.filter((c) => c !== cond) : [...filtered, cond];
-    });
+  const handleToggleMedicalCondition = (condition: string) => {
+    setMedicalConditions((prev) => toggleMedicalCondition(prev, condition));
   };
-
-  const hasNonNoneConditions = medicalConditions.some((c) => c !== "None of the above");
 
   const openTermsModal = useCallback(() => {
     previousFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -862,32 +840,12 @@ function BookingInner() {
         {step === 4 && (
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-2">Medical History</h2>
-            <p className="text-sm text-gray-600 mb-6">Please tick if you have any of the following:</p>
-            <div className="space-y-3">
-              {MEDICAL_CONDITIONS_FALLBACK.map((cond) => (
-                <label key={cond} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={medicalConditions.includes(cond)}
-                    onChange={() => toggleCondition(cond)}
-                    className="h-4 w-4 rounded border-gray-300 text-brand-gold accent-brand-gold"
-                  />
-                  <span className="text-sm text-gray-700">{cond}</span>
-                </label>
-              ))}
-            </div>
-            {hasNonNoneConditions && (
-              <div className="mt-6">
-                <label className="block text-sm font-semibold text-brand-blue mb-2">Please provide details of your condition(s)</label>
-                <textarea
-                  value={medicalNotes}
-                  onChange={(e) => setMedicalNotes(e.target.value)}
-                  rows={4}
-                  placeholder="Describe your conditions..."
-                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
-                />
-              </div>
-            )}
+            <MedicalConditionsChecklist
+              medicalConditions={medicalConditions}
+              medicalNotes={medicalNotes}
+              onToggleCondition={handleToggleMedicalCondition}
+              onMedicalNotesChange={setMedicalNotes}
+            />
             <div className="mt-8 flex justify-between">
               <button onClick={() => setStep(3)} className="flex items-center gap-2 text-gray-600 hover:text-brand-blue font-medium">
                 <ChevronLeft className="h-4 w-4" /> Back
