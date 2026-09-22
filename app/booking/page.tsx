@@ -1441,7 +1441,7 @@ function BookingInner() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="terms-modal-title"
-            aria-describedby="terms-modal-description"
+            aria-describedby="terms-modal-content"
             className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
@@ -1450,9 +1450,6 @@ function BookingInner() {
                 <h2 id="terms-modal-title" className="text-xl font-bold text-brand-blue">
                   {termsAndConditions.title}
                 </h2>
-                <p id="terms-modal-description" className="mt-1 text-sm text-gray-600">
-                  {termsAndConditions.intro}
-                </p>
               </div>
               <button
                 type="button"
@@ -1463,20 +1460,8 @@ function BookingInner() {
               </button>
             </div>
 
-            <div className="max-h-[65vh] space-y-6 overflow-y-auto px-6 py-5">
-              {termsAndConditions.sections.map((section) => (
-                <section key={section.title}>
-                  <h3 className="text-base font-bold text-brand-blue">{section.title}</h3>
-                  <ul className="mt-2 space-y-2 text-sm text-gray-700">
-                    {section.bullets.map((bullet) => (
-                      <li key={bullet} className="flex gap-2">
-                        <span className="mt-1 text-brand-gold">•</span>
-                        <span>{bullet}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
+            <div id="terms-modal-content" className="max-h-[65vh] overflow-y-auto px-6 py-5">
+              <div className="whitespace-pre-wrap text-sm leading-6 text-gray-700">{termsAndConditions.content}</div>
             </div>
 
             <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">

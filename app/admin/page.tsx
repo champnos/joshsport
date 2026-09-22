@@ -22,10 +22,6 @@ const emptyForm: TreatmentFormState = {
   active: true,
 };
 
-const emptyTermsSection = {
-  title: "",
-  bullets: [""],
-};
 
 export default function AdminPage() {
   const [password, setPassword] = useState("");
@@ -524,102 +520,9 @@ export default function AdminPage() {
     }
   };
 
-  const updateTermsSection = (index: number, field: "title", value: string) => {
+  const updateTermsField = (field: "title" | "content", value: string) => {
     setTermsSuccess("");
-    setTermsAndConditions((prev) => ({
-      ...prev,
-      sections: prev.sections.map((section, sectionIndex) => (
-        sectionIndex === index ? { ...section, [field]: value } : section
-      )),
-    }));
-  };
-
-  const updateTermsBullet = (sectionIndex: number, bulletIndex: number, value: string) => {
-    setTermsSuccess("");
-    setTermsAndConditions((prev) => ({
-      ...prev,
-      sections: prev.sections.map((section, currentSectionIndex) => (
-        currentSectionIndex === sectionIndex
-          ? {
-              ...section,
-              bullets: section.bullets.map((bullet, currentBulletIndex) => (
-                currentBulletIndex === bulletIndex ? value : bullet
-              )),
-            }
-          : section
-      )),
-    }));
-  };
-
-  const addTermsSection = () => {
-    setTermsSuccess("");
-    setTermsAndConditions((prev) => ({
-      ...prev,
-      sections: [...prev.sections, { ...emptyTermsSection, bullets: [...emptyTermsSection.bullets] }],
-    }));
-  };
-
-  const removeTermsSection = (index: number) => {
-    setTermsSuccess("");
-    setTermsAndConditions((prev) => ({
-      ...prev,
-      sections: prev.sections.filter((_, sectionIndex) => sectionIndex !== index),
-    }));
-  };
-
-  const moveTermsSection = (index: number, direction: -1 | 1) => {
-    const nextIndex = index + direction;
-    if (nextIndex < 0 || nextIndex >= termsAndConditions.sections.length) return;
-
-    setTermsSuccess("");
-    setTermsAndConditions((prev) => {
-      const sections = [...prev.sections];
-      const [section] = sections.splice(index, 1);
-      sections.splice(nextIndex, 0, section);
-      return { ...prev, sections };
-    });
-  };
-
-  const addTermsBullet = (sectionIndex: number) => {
-    setTermsSuccess("");
-    setTermsAndConditions((prev) => ({
-      ...prev,
-      sections: prev.sections.map((section, currentSectionIndex) => (
-        currentSectionIndex === sectionIndex
-          ? { ...section, bullets: [...section.bullets, ""] }
-          : section
-      )),
-    }));
-  };
-
-  const removeTermsBullet = (sectionIndex: number, bulletIndex: number) => {
-    setTermsSuccess("");
-    setTermsAndConditions((prev) => ({
-      ...prev,
-      sections: prev.sections.map((section, currentSectionIndex) => (
-        currentSectionIndex === sectionIndex
-          ? { ...section, bullets: section.bullets.filter((_, currentBulletIndex) => currentBulletIndex !== bulletIndex) }
-          : section
-      )),
-    }));
-  };
-
-  const moveTermsBullet = (sectionIndex: number, bulletIndex: number, direction: -1 | 1) => {
-    const nextIndex = bulletIndex + direction;
-    const bullets = termsAndConditions.sections[sectionIndex]?.bullets ?? [];
-    if (nextIndex < 0 || nextIndex >= bullets.length) return;
-
-    setTermsSuccess("");
-    setTermsAndConditions((prev) => ({
-      ...prev,
-      sections: prev.sections.map((section, currentSectionIndex) => {
-        if (currentSectionIndex !== sectionIndex) return section;
-        const nextBullets = [...section.bullets];
-        const [bullet] = nextBullets.splice(bulletIndex, 1);
-        nextBullets.splice(nextIndex, 0, bullet);
-        return { ...section, bullets: nextBullets };
-      }),
-    }));
+    setTermsAndConditions((prev) => ({ ...prev, [field]: value }));
   };
 
   const saveTerms = async () => {
@@ -1175,18 +1078,9 @@ export default function AdminPage() {
 
         {activeTab === "terms" && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-brand-blue">Terms &amp; Conditions</h2>
-                <p className="mt-1 text-sm text-gray-500">Edit the public /terms page and booking acceptance modal content.</p>
-              </div>
-              <button
-                type="button"
-                onClick={addTermsSection}
-                className="text-sm font-semibold text-brand-blue hover:text-brand-gold"
-              >
-                + Add section
-              </button>
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-brand-blue">Terms &amp; Conditions</h2>
+              <p className="mt-1 text-sm text-gray-500">Edit the public /terms page and booking acceptance modal content.</p>
             </div>
 
             {loadingTerms && <p className="text-sm text-gray-500 mb-4">Loading terms and conditions…</p>}
@@ -1197,119 +1091,19 @@ export default function AdminPage() {
                 <input
                   type="text"
                   value={termsAndConditions.title}
-                  onChange={(e) => {
-                    setTermsSuccess("");
-                    setTermsAndConditions((prev) => ({ ...prev, title: e.target.value }));
-                  }}
+                  onChange={(e) => updateTermsField("title", e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-brand-blue mb-2">Intro</label>
+                <label className="block text-sm font-medium text-brand-blue mb-2">Content</label>
                 <textarea
-                  value={termsAndConditions.intro}
-                  onChange={(e) => {
-                    setTermsSuccess("");
-                    setTermsAndConditions((prev) => ({ ...prev, intro: e.target.value }));
-                  }}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
+                  value={termsAndConditions.content}
+                  onChange={(e) => updateTermsField("content", e.target.value)}
+                  rows={18}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm leading-6 text-gray-900 focus:border-brand-blue focus:outline-none"
                 />
-              </div>
-
-              <div className="space-y-4">
-                {termsAndConditions.sections.map((section, sectionIndex) => (
-                  <div key={`${sectionIndex}-${section.title}`} className="rounded-lg border border-gray-200 p-4 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <label className="text-sm font-semibold text-brand-blue">Section {sectionIndex + 1}</label>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => moveTermsSection(sectionIndex, -1)}
-                          disabled={sectionIndex === 0}
-                          className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                        >
-                          Move up
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveTermsSection(sectionIndex, 1)}
-                          disabled={sectionIndex === termsAndConditions.sections.length - 1}
-                          className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                        >
-                          Move down
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeTermsSection(sectionIndex)}
-                          className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-brand-blue mb-2">Section Title</label>
-                      <input
-                        type="text"
-                        value={section.title}
-                        onChange={(e) => updateTermsSection(sectionIndex, "title", e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <label className="text-sm font-medium text-brand-blue">Bullets</label>
-                        <button
-                          type="button"
-                          onClick={() => addTermsBullet(sectionIndex)}
-                          className="text-sm font-semibold text-brand-blue hover:text-brand-gold"
-                        >
-                          + Add bullet
-                        </button>
-                      </div>
-
-                      {section.bullets.map((bullet, bulletIndex) => (
-                        <div key={`${sectionIndex}-${bulletIndex}`} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                          <textarea
-                            value={bullet}
-                            onChange={(e) => updateTermsBullet(sectionIndex, bulletIndex, e.target.value)}
-                            rows={2}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-brand-blue focus:outline-none"
-                          />
-                          <div className="flex flex-wrap gap-2 sm:flex-col">
-                            <button
-                              type="button"
-                              onClick={() => moveTermsBullet(sectionIndex, bulletIndex, -1)}
-                              disabled={bulletIndex === 0}
-                              className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                            >
-                              Move up
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveTermsBullet(sectionIndex, bulletIndex, 1)}
-                              disabled={bulletIndex === section.bullets.length - 1}
-                              className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
-                            >
-                              Move down
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeTermsBullet(sectionIndex, bulletIndex)}
-                              className="text-xs px-3 py-2 rounded-lg font-semibold border border-red-200 text-red-600 hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
 
