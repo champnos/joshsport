@@ -11,6 +11,7 @@ export interface AuthenticatedCustomer {
   email: string;
   full_name: string | null;
   email_verified_at: string | null;
+  is_admin: boolean;
 }
 
 export async function getAuthenticatedCustomer(request: NextRequest): Promise<AuthenticatedCustomer | null> {
@@ -22,7 +23,7 @@ export async function getAuthenticatedCustomer(request: NextRequest): Promise<Au
 
   const { data, error } = await supabaseAdmin
     .from("customers")
-    .select("id, email, full_name, email_verified_at")
+    .select("id, email, full_name, email_verified_at, is_admin")
     .eq("id", payload.sub)
     .single();
 

@@ -49,6 +49,7 @@ create table if not exists customers (
   full_name text,
   password_hash text not null,
   email_verified_at timestamptz,
+  is_admin boolean not null default false,
   phone text,
   address text,
   postcode text,
