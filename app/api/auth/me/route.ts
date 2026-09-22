@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
           email: customer.email,
           full_name: customer.full_name,
           email_verified: Boolean(customer.email_verified_at),
+          is_admin: Boolean(customer.is_admin),
         },
       },
       { status: 200 },

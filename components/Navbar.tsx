@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 
@@ -14,9 +14,48 @@ const navLinks = [
   { href: "/contact", label: "Contact" },
 ];
 
+interface AuthSessionResponse {
+  customer: {
+    is_admin?: boolean;
+  } | null;
+}
+
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [showAdminLink, setShowAdminLink] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSession = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) {
+          if (!cancelled) setShowAdminLink(false);
+          return;
+        }
+
+        const payload = (await response.json()) as AuthSessionResponse;
+        if (!cancelled) {
+          setShowAdminLink(Boolean(payload.customer?.is_admin));
+        }
+      } catch {
+        if (!cancelled) setShowAdminLink(false);
+      }
+    };
+
+    void loadSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const links = useMemo(
+    () => (showAdminLink ? [...navLinks, { href: "/admin", label: "Admin" }] : navLinks),
+    [showAdminLink],
+  );
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -44,7 +83,7 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden md:flex items-center gap-12">
-          {navLinks.map((l) => (
+          {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
@@ -70,7 +109,7 @@ export default function Navbar() {
 
       {open && (
         <div className="md:hidden bg-slate-800 border-t border-brand-gold px-6 pb-4 space-y-2">
-          {navLinks.map((l) => (
+          {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
