@@ -5,6 +5,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
 import { hasNonNoneMedicalConditions, toggleMedicalCondition } from "@/lib/medical-conditions";
+import { notifyCustomerSessionChanged } from "@/lib/customer-session-events";
 
 interface CustomerSession {
   id: string;
@@ -117,6 +118,7 @@ function AccountInner() {
 
       setLoginPassword("");
       await loadSession();
+      notifyCustomerSessionChanged();
       if (redirectTarget) {
         router.push(redirectTarget);
       }
@@ -129,6 +131,7 @@ function AccountInner() {
     await fetch("/api/auth/logout", { method: "POST" });
     setCustomer(null);
     setProfile(EMPTY_PROFILE);
+    notifyCustomerSessionChanged();
   };
 
   const handleSaveProfile = async (event: FormEvent<HTMLFormElement>) => {
