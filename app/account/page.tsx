@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
+import { hasNonNoneMedicalConditions, toggleMedicalCondition } from "@/lib/medical-conditions";
 
 interface CustomerSession {
   id: string;
@@ -53,7 +55,6 @@ export default function AccountPage() {
   const [loginError, setLoginError] = useState("");
 
   const [profile, setProfile] = useState<CustomerProfile>(EMPTY_PROFILE);
-  const [conditionsInput, setConditionsInput] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
 
   const loadProfile = useCallback(async () => {
@@ -68,7 +69,6 @@ export default function AccountPage() {
     } as CustomerProfile;
 
     setProfile(loadedProfile);
-    setConditionsInput(loadedProfile.medical_conditions.join(", "));
   }, []);
 
   const loadSession = useCallback(async () => {
@@ -119,7 +119,6 @@ export default function AccountPage() {
     await fetch("/api/auth/logout", { method: "POST" });
     setCustomer(null);
     setProfile(EMPTY_PROFILE);
-    setConditionsInput("");
   };
 
   const handleSaveProfile = async (event: FormEvent<HTMLFormElement>) => {
@@ -127,18 +126,14 @@ export default function AccountPage() {
     setSavingProfile(true);
     setProfileMessage("");
 
-    const medicalConditions = conditionsInput
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-
     try {
       const response = await fetch("/api/account/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...profile,
-          medical_conditions: medicalConditions,
+          medical_conditions: profile.medical_conditions,
+          medical_notes: hasNonNoneMedicalConditions(profile.medical_conditions) ? profile.medical_notes : "",
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -154,11 +149,17 @@ export default function AccountPage() {
       } as CustomerProfile;
 
       setProfile(updatedProfile);
-      setConditionsInput(updatedProfile.medical_conditions.join(", "));
       setProfileMessage("Profile saved.");
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const handleToggleMedicalCondition = (condition: string) => {
+    setProfile((prev) => ({
+      ...prev,
+      medical_conditions: toggleMedicalCondition(prev.medical_conditions, condition),
+    }));
   };
 
   if (loading) {
@@ -306,22 +307,12 @@ export default function AccountPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-brand-blue mb-1">Medical conditions (comma separated)</label>
-            <textarea
-              value={conditionsInput}
-              onChange={(event) => setConditionsInput(event.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-brand-blue mb-1">Medical notes</label>
-            <textarea
-              value={profile.medical_notes}
-              onChange={(event) => setProfile((prev) => ({ ...prev, medical_notes: event.target.value }))}
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+            <label className="block text-sm font-semibold text-brand-blue mb-2">Medical history</label>
+            <MedicalConditionsChecklist
+              medicalConditions={profile.medical_conditions}
+              medicalNotes={profile.medical_notes}
+              onToggleCondition={handleToggleMedicalCondition}
+              onMedicalNotesChange={(value) => setProfile((prev) => ({ ...prev, medical_notes: value }))}
             />
           </div>
 
