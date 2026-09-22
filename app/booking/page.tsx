@@ -90,6 +90,38 @@ interface BookingDraft {
 const BOOKING_DRAFT_STORAGE_KEY = "bookingDraft";
 const BOOKING_REDIRECT_PATH = "/booking";
 
+function getDraftStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+}
+
+function getDraftStringValue(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function hasMeaningfulBookingDraft(draft: BookingDraft) {
+  return (
+    draft.step !== 1 ||
+    draft.treatmentId !== "" ||
+    draft.duration !== null ||
+    draft.date !== "" ||
+    draft.startTime !== "" ||
+    draft.clientName.trim() !== "" ||
+    draft.clientDob !== "" ||
+    draft.clientPhone.trim() !== "" ||
+    draft.clientAddress.trim() !== "" ||
+    draft.clientPostcode.trim() !== "" ||
+    draft.medicalConditions.length > 0 ||
+    draft.medicalNotes.trim() !== "" ||
+    draft.injuryRecent !== null ||
+    draft.injuryRecentNotes.trim() !== "" ||
+    draft.injuryPrevious !== null ||
+    draft.injuryPreviousNotes.trim() !== "" ||
+    draft.additionalInfo.trim() !== "" ||
+    draft.voucherCodeInput.trim() !== "" ||
+    draft.termsAccepted
+  );
+}
+
 function getMinDate() {
   return new Date().toISOString().split("T")[0];
 }
@@ -163,42 +195,29 @@ function BookingInner() {
   const hasRestoredDraftRef = useRef(false);
   const latestBookingDraftRef = useRef<BookingDraft | null>(null);
 
-  const restoreBookingDraft = useCallback(() => {
-    if (hasRestoredDraftRef.current) return;
+  const readStoredBookingDraft = useCallback(() => {
+    if (hasRestoredDraftRef.current) return null;
     hasRestoredDraftRef.current = true;
 
     try {
       const storedDraft = window.sessionStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
-      if (!storedDraft) return;
+      if (!storedDraft) return null;
 
-      const draft = JSON.parse(storedDraft) as Partial<BookingDraft>;
-      setStep(typeof draft.step === "number" && draft.step >= 1 && draft.step <= STEPS.length ? draft.step : 1);
-      setTreatmentId(typeof draft.treatmentId === "string" ? draft.treatmentId : "");
-      setDuration(typeof draft.duration === "number" ? draft.duration : null);
-      setDate(typeof draft.date === "string" ? draft.date : "");
-      setStartTime(typeof draft.startTime === "string" ? draft.startTime : "");
-      setClientName(typeof draft.clientName === "string" ? draft.clientName : "");
-      setClientDob(typeof draft.clientDob === "string" ? draft.clientDob : "");
-      setClientPhone(typeof draft.clientPhone === "string" ? draft.clientPhone : "");
-      setClientAddress(typeof draft.clientAddress === "string" ? draft.clientAddress : "");
-      setClientPostcode(typeof draft.clientPostcode === "string" ? draft.clientPostcode : "");
-      setMedicalConditions(Array.isArray(draft.medicalConditions) ? draft.medicalConditions.filter((value): value is string => typeof value === "string") : []);
-      setMedicalNotes(typeof draft.medicalNotes === "string" ? draft.medicalNotes : "");
-      setInjuryRecent(typeof draft.injuryRecent === "boolean" ? draft.injuryRecent : null);
-      setInjuryRecentNotes(typeof draft.injuryRecentNotes === "string" ? draft.injuryRecentNotes : "");
-      setInjuryPrevious(typeof draft.injuryPrevious === "boolean" ? draft.injuryPrevious : null);
-      setInjuryPreviousNotes(typeof draft.injuryPreviousNotes === "string" ? draft.injuryPreviousNotes : "");
-      setAdditionalInfo(typeof draft.additionalInfo === "string" ? draft.additionalInfo : "");
-      setVoucherCodeInput(typeof draft.voucherCodeInput === "string" ? draft.voucherCodeInput : "");
-      setTermsAccepted(Boolean(draft.termsAccepted));
+      return JSON.parse(storedDraft) as Partial<BookingDraft>;
     } catch (storageError) {
       console.warn("Unable to restore booking draft:", storageError);
+      return null;
     }
   }, []);
 
   const persistBookingDraft = useCallback(() => {
     try {
       if (!latestBookingDraftRef.current) return;
+      if (!hasMeaningfulBookingDraft(latestBookingDraftRef.current)) {
+        window.sessionStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY);
+        return;
+      }
+
       window.sessionStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify(latestBookingDraftRef.current));
     } catch (storageError) {
       console.warn("Unable to persist booking draft:", storageError);
@@ -257,24 +276,49 @@ function BookingInner() {
           fetch("/api/working-dates"),
         ]);
 
-        if (profileRes.ok) {
-          const profileData = (await profileRes.json()) as CustomerProfileResponse;
-          const profile = profileData.profile;
-          if (profile) {
-            setClientName(profile.full_name ?? "");
-            setClientPhone(profile.phone ?? "");
-            setClientAddress(profile.address ?? "");
-            setClientPostcode(profile.postcode ?? "");
-            setClientDob(profile.date_of_birth ?? "");
-            setMedicalConditions(Array.isArray(profile.medical_conditions) ? profile.medical_conditions : []);
-            setMedicalNotes(profile.medical_notes ?? "");
-            setInjuryRecent(typeof profile.injury_recent === "boolean" ? profile.injury_recent : null);
-            setInjuryRecentNotes(profile.injury_recent_notes ?? "");
-            setInjuryPrevious(typeof profile.injury_previous === "boolean" ? profile.injury_previous : null);
-            setInjuryPreviousNotes(profile.injury_previous_notes ?? "");
-            setAdditionalInfo(profile.additional_information ?? "");
-          }
+        const storedDraft = readStoredBookingDraft();
+        const profile = profileRes.ok ? ((await profileRes.json()) as CustomerProfileResponse).profile : undefined;
+
+        if (storedDraft) {
+          setStep(typeof storedDraft.step === "number" && storedDraft.step >= 1 && storedDraft.step <= STEPS.length ? storedDraft.step : 1);
+          setTreatmentId(typeof storedDraft.treatmentId === "string" ? storedDraft.treatmentId : "");
+          setDuration(typeof storedDraft.duration === "number" ? storedDraft.duration : null);
+          setDate(typeof storedDraft.date === "string" ? storedDraft.date : "");
+          setStartTime(typeof storedDraft.startTime === "string" ? storedDraft.startTime : "");
+          setVoucherCodeInput(typeof storedDraft.voucherCodeInput === "string" ? storedDraft.voucherCodeInput : "");
+          setTermsAccepted(Boolean(storedDraft.termsAccepted));
         }
+
+        setClientName(getDraftStringValue(storedDraft?.clientName, profile?.full_name ?? ""));
+        setClientPhone(getDraftStringValue(storedDraft?.clientPhone, profile?.phone ?? ""));
+        setClientAddress(getDraftStringValue(storedDraft?.clientAddress, profile?.address ?? ""));
+        setClientPostcode(getDraftStringValue(storedDraft?.clientPostcode, profile?.postcode ?? ""));
+        setClientDob(getDraftStringValue(storedDraft?.clientDob, profile?.date_of_birth ?? ""));
+        setMedicalConditions(
+          (() => {
+            const draftMedicalConditions = getDraftStringArray(storedDraft?.medicalConditions);
+            if (draftMedicalConditions.length > 0) return draftMedicalConditions;
+            return Array.isArray(profile?.medical_conditions) ? profile.medical_conditions : [];
+          })(),
+        );
+        setMedicalNotes(getDraftStringValue(storedDraft?.medicalNotes, profile?.medical_notes ?? ""));
+        setInjuryRecent(
+          typeof storedDraft?.injuryRecent === "boolean"
+            ? storedDraft.injuryRecent
+            : typeof profile?.injury_recent === "boolean"
+              ? profile.injury_recent
+              : null,
+        );
+        setInjuryRecentNotes(getDraftStringValue(storedDraft?.injuryRecentNotes, profile?.injury_recent_notes ?? ""));
+        setInjuryPrevious(
+          typeof storedDraft?.injuryPrevious === "boolean"
+            ? storedDraft.injuryPrevious
+            : typeof profile?.injury_previous === "boolean"
+              ? profile.injury_previous
+              : null,
+        );
+        setInjuryPreviousNotes(getDraftStringValue(storedDraft?.injuryPreviousNotes, profile?.injury_previous_notes ?? ""));
+        setAdditionalInfo(getDraftStringValue(storedDraft?.additionalInfo, profile?.additional_information ?? ""));
 
         if (treatmentsRes.ok) {
           const treatmentsData = await treatmentsRes.json();
@@ -296,7 +340,6 @@ function BookingInner() {
           setWorkingDates(new Set(availableDates));
         }
 
-        restoreBookingDraft();
       } catch (err) {
         console.error("Failed to load data:", err);
         setClientEmail("");
@@ -309,7 +352,7 @@ function BookingInner() {
       }
     };
     loadData();
-  }, [redirectToLogin, restoreBookingDraft]);
+  }, [readStoredBookingDraft, redirectToLogin]);
 
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
   const selectedPrice = selectedTreatment?.durations.find((d) => d.mins === duration)?.price || 0;
