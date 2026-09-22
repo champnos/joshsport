@@ -1,19 +1,21 @@
 import Link from "next/link";
-import { TERMS_AND_CONDITIONS } from "@/lib/terms-and-conditions";
+import { getTermsAndConditions } from "@/lib/terms-store";
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const terms = await getTermsAndConditions();
+
   return (
     <div className="min-h-screen bg-white">
       <section className="bg-brand-blue px-4 py-16 text-white sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <h1 className="text-4xl font-extrabold sm:text-5xl">{TERMS_AND_CONDITIONS.title}</h1>
-          <p className="mt-4 max-w-3xl text-lg text-white/80">{TERMS_AND_CONDITIONS.intro}</p>
+          <h1 className="text-4xl font-extrabold sm:text-5xl">{terms.title}</h1>
+          <p className="mt-4 max-w-3xl text-lg text-white/80">{terms.intro}</p>
         </div>
       </section>
 
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl space-y-8">
-          {TERMS_AND_CONDITIONS.sections.map((section) => (
+          {terms.sections.map((section) => (
             <section key={section.title} className="rounded-2xl border border-brand-blue/10 bg-white p-6 shadow-sm sm:p-8">
               <h2 className="text-2xl font-bold text-brand-blue">{section.title}</h2>
               <ul className="mt-4 space-y-3 text-gray-700">

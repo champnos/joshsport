@@ -7,7 +7,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
 import { getAgeValidation, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
 import { hasNonNoneMedicalConditions, toggleMedicalCondition } from "@/lib/medical-conditions";
-import { TERMS_ACCEPTANCE_LABEL, TERMS_AND_CONDITIONS } from "@/lib/terms-and-conditions";
+import {
+  DEFAULT_TERMS_AND_CONDITIONS,
+  TERMS_ACCEPTANCE_LABEL,
+  type TermsAndConditions,
+} from "@/lib/terms-and-conditions";
 
 interface DurationOption {
   mins: number;
@@ -187,6 +191,7 @@ function BookingInner() {
   const [voucherMessage, setVoucherMessage] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsAndConditions, setTermsAndConditions] = useState<TermsAndConditions>(DEFAULT_TERMS_AND_CONDITIONS);
   const distanceCheckRequestRef = useRef(0);
   const outOfRangeAlertedPostcodeRef = useRef("");
   const previousFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -269,11 +274,12 @@ function BookingInner() {
 
         if (!sessionData.customer.email_verified) return;
 
-        const [profileRes, treatmentsRes, settingsRes, datesRes] = await Promise.all([
+        const [profileRes, treatmentsRes, settingsRes, datesRes, termsRes] = await Promise.all([
           fetch("/api/account/profile"),
           fetch("/api/treatments"),
           fetch("/api/admin/settings"),
           fetch("/api/working-dates"),
+          fetch("/api/terms"),
         ]);
 
         const storedDraft = readStoredBookingDraft();
@@ -338,6 +344,10 @@ function BookingInner() {
                 .map((workingDate: WorkingDateSummary) => workingDate.date)
             : datesData.dates || [];
           setWorkingDates(new Set(availableDates));
+        }
+
+        if (termsRes.ok) {
+          setTermsAndConditions(await termsRes.json());
         }
 
       } catch (err) {
@@ -1438,10 +1448,10 @@ function BookingInner() {
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
                 <h2 id="terms-modal-title" className="text-xl font-bold text-brand-blue">
-                  {TERMS_AND_CONDITIONS.title}
+                  {termsAndConditions.title}
                 </h2>
                 <p id="terms-modal-description" className="mt-1 text-sm text-gray-600">
-                  {TERMS_AND_CONDITIONS.intro}
+                  {termsAndConditions.intro}
                 </p>
               </div>
               <button
@@ -1454,7 +1464,7 @@ function BookingInner() {
             </div>
 
             <div className="max-h-[65vh] space-y-6 overflow-y-auto px-6 py-5">
-              {TERMS_AND_CONDITIONS.sections.map((section) => (
+              {termsAndConditions.sections.map((section) => (
                 <section key={section.title}>
                   <h3 className="text-base font-bold text-brand-blue">{section.title}</h3>
                   <ul className="mt-2 space-y-2 text-sm text-gray-700">
