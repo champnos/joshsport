@@ -15,6 +15,7 @@ export interface Treatment {
 
 export interface Booking {
   id: string;
+  customer_id?: string | null;
   treatment_id: string;
   treatment_name: string;
   duration_mins: number;
@@ -29,6 +30,7 @@ export interface Booking {
   emergency_name: string;
   emergency_relationship: string;
   emergency_phone: string;
+  additional_information?: string | null;
   medical_conditions: string[];
   medical_notes: string;
   injury_recent: boolean;

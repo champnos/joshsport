@@ -634,12 +634,10 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
               </div>
 
               <div className="rounded-2xl bg-gray-50 p-5">
-                <h4 className="text-sm font-bold uppercase tracking-wide text-brand-blue">Emergency contact</h4>
-                <dl className="mt-4 space-y-2 text-sm text-gray-700">
-                  <div><dt className="font-semibold text-gray-500">Name</dt><dd>{selectedBooking.emergency_name || "Not provided"}</dd></div>
-                  <div><dt className="font-semibold text-gray-500">Relationship</dt><dd>{selectedBooking.emergency_relationship || "Not provided"}</dd></div>
-                  <div><dt className="font-semibold text-gray-500">Phone</dt><dd>{selectedBooking.emergency_phone || "Not provided"}</dd></div>
-                </dl>
+                <h4 className="text-sm font-bold uppercase tracking-wide text-brand-blue">Additional information</h4>
+                <p className="mt-4 whitespace-pre-wrap text-sm text-gray-700">
+                  {selectedBooking.additional_information || "Not provided"}
+                </p>
               </div>
 
               <div className="rounded-2xl bg-gray-50 p-5">

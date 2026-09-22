@@ -5,6 +5,7 @@ import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from 
 import { VoucherValidationError, calculateDiscountAmount, validateOptionalVoucher } from "@/lib/vouchers";
 
 interface NormalizedBooking {
+  customer_id: string;
   treatment_id: string;
   treatment_name: string;
   duration_mins: number;
@@ -26,6 +27,7 @@ interface NormalizedBooking {
   injury_previous: boolean;
   injury_previous_notes: string;
   voucher_code: string;
+  additional_information: string;
 }
 
 export interface PreparedBooking {
@@ -51,6 +53,7 @@ function normalizeBooking(body: Record<string, unknown>): NormalizedBooking {
   const rawDuration = Number(body.duration_mins);
 
   return {
+    customer_id: typeof body.customer_id === "string" ? body.customer_id.trim() : "",
     treatment_id: typeof body.treatment_id === "string" ? body.treatment_id.trim() : "",
     treatment_name: typeof body.treatment_name === "string" ? body.treatment_name.trim() : "",
     duration_mins: Number.isFinite(rawDuration) ? rawDuration : 0,
@@ -74,6 +77,7 @@ function normalizeBooking(body: Record<string, unknown>): NormalizedBooking {
     injury_previous: typeof body.injury_previous === "boolean" ? body.injury_previous : false,
     injury_previous_notes: typeof body.injury_previous_notes === "string" ? body.injury_previous_notes.trim() : "",
     voucher_code: "",
+    additional_information: typeof body.additional_information === "string" ? body.additional_information.trim() : "",
   };
 }
 
