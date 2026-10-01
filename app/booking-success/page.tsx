@@ -24,8 +24,6 @@ function CreateAccountPrompt({ defaultName, defaultEmail }: { defaultName: strin
   const [accountExists, setAccountExists] = useState(false);
   const [createdForEmail, setCreatedForEmail] = useState("");
 
-  if (dismissed) return null;
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitting(true);
@@ -53,6 +51,8 @@ function CreateAccountPrompt({ defaultName, defaultEmail }: { defaultName: strin
       setSubmitting(false);
     }
   };
+
+  if (dismissed) return null;
 
   if (createdForEmail) {
     return (

@@ -197,7 +197,6 @@ function BookingInner() {
   const outOfRangeAlertedPostcodeRef = useRef("");
   const previousFocusedElementRef = useRef<HTMLElement | null>(null);
   const termsDialogRef = useRef<HTMLDivElement | null>(null);
-  const hasRedirectedForLoginRef = useRef(false);
   const hasRestoredDraftRef = useRef(false);
   const latestBookingDraftRef = useRef<BookingDraft | null>(null);
 
@@ -231,9 +230,6 @@ function BookingInner() {
   }, []);
 
   const goToLoginForPrefill = useCallback(() => {
-    if (hasRedirectedForLoginRef.current) return;
-    hasRedirectedForLoginRef.current = true;
-
     persistBookingDraft();
     router.push(`/account?redirect=${encodeURIComponent(BOOKING_REDIRECT_PATH)}&reason=booking`);
   }, [persistBookingDraft, router]);
