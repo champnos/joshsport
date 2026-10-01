@@ -308,15 +308,16 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
   const selectedClientBookingCount = useMemo(() => {
     if (!selectedBooking) return 0;
     const email = (selectedBooking.client_email ?? "").trim().toLowerCase();
-    return bookings.filter(
-      (booking) =>
-        (email !== "" && (booking.client_email ?? "").trim().toLowerCase() === email) ||
-        (selectedBooking.client_phone !== "" && booking.client_phone === selectedBooking.client_phone),
+    const phone = selectedBooking.client_phone ?? "";
+    return bookings.filter((booking) =>
+      email !== ""
+        ? (booking.client_email ?? "").trim().toLowerCase() === email
+        : phone !== "" && booking.client_phone === phone,
     ).length;
   }, [bookings, selectedBooking]);
 
   const showClientBookingHistory = (booking: Booking) => {
-    setSearchTerm((booking.client_email ?? "").trim() || booking.client_phone);
+    setSearchTerm((booking.client_email ?? "").trim() || (booking.client_phone ?? ""));
     setStatusFilter("all");
     setDateFilter("");
     setSelectedBookingId(null);

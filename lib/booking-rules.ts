@@ -76,3 +76,8 @@ export function isValidUkPostcode(value: string) {
   if (!value.trim()) return false;
   return UK_POSTCODE_REGEX.test(normalizePostcode(value));
 }
+
+export function isValidEmail(email: string) {
+  const trimmedEmail = email.trim();
+  return trimmedEmail.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+}

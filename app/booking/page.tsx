@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
-import { getAgeValidation, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
+import { getAgeValidation, isValidEmail as isValidEmailAddress, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
 import { hasNonNoneMedicalConditions, toggleMedicalCondition } from "@/lib/medical-conditions";
 import {
   DEFAULT_TERMS_AND_CONDITIONS,
@@ -126,11 +126,6 @@ function hasMeaningfulBookingDraft(draft: BookingDraft) {
     draft.voucherCodeInput.trim() !== "" ||
     draft.termsAccepted
   );
-}
-
-function isValidEmailAddress(email: string) {
-  const trimmedEmail = email.trim();
-  return trimmedEmail.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
 }
 
 function getMinDate() {

@@ -1,4 +1,4 @@
-import { getAgeValidation } from "@/lib/booking-rules";
+import { getAgeValidation, isValidEmail } from "@/lib/booking-rules";
 import { getDistanceValidationErrorStatus, validateBookingDistance, type DistanceCheckResult } from "@/lib/distance-check";
 import { supabase } from "@/lib/supabase";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
@@ -79,10 +79,6 @@ function normalizeBooking(body: Record<string, unknown>): NormalizedBooking {
     voucher_code: "",
     additional_information: typeof body.additional_information === "string" ? body.additional_information.trim() : "",
   };
-}
-
-export function isValidEmail(email: string) {
-  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function getDurationPrice(durations: unknown, durationMins: number) {
