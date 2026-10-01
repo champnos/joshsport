@@ -1020,7 +1020,8 @@ export default function AdminPage() {
 
             {/* About Image Settings */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-brand-blue mb-6">About Slideshow (About Section)</h2>
+              <h2 className="text-lg font-bold text-brand-blue mb-2">About Images (About Section)</h2>
+              <p className="text-sm text-gray-500 mb-6">The first two images appear to the left and right of the About text, respectively.</p>
               {aboutError && <p className="text-sm text-red-600 mb-4">{aboutError}</p>}
 
               <div className="space-y-4 mb-6">
@@ -1091,7 +1092,7 @@ export default function AdminPage() {
                   </div>
                 ))}
                 {aboutImages.length === 0 && (
-                  <p className="text-sm text-gray-500">No about images yet. Upload at least two to create the slideshow.</p>
+                  <p className="text-sm text-gray-500">No about images yet. Upload two for the left and right slots on the homepage.</p>
                 )}
               </div>
 

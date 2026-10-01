@@ -32,7 +32,7 @@ export const HERO_DISPLAY_FRAMES: DisplayFrame[] = [
 ];
 
 export const ABOUT_DISPLAY_FRAMES: DisplayFrame[] = [
-  { label: "Desktop", width: 616, height: 520 },
+  { label: "Desktop", width: 304, height: 520 },
   { label: "Mobile", width: 358, height: 320 },
 ];
 

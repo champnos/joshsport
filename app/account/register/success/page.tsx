@@ -14,7 +14,7 @@ export default function RegisterSuccessPage({
         <p className="text-sm text-gray-700">
           We sent a verification link to <strong>{email}</strong>. Please verify your email before logging in.
         </p>
-        <p className="text-sm text-gray-700">If it does not arrive, register again to generate a new verification email.</p>
+        <p className="text-sm text-gray-700">Didn&apos;t receive the email? Please register again to generate a new verification email, and check your junk or spam folder.</p>
         <Link className="inline-flex rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90" href="/account">
           Back to login
         </Link>

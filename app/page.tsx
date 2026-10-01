@@ -29,11 +29,32 @@ const benefits = [
   },
 ];
 
+function AboutImageSlot({ image, loading }: { image?: SlideshowImage; loading: boolean }) {
+  return (
+    <div className="flex h-[320px] w-full items-center justify-center overflow-hidden rounded-2xl bg-gray-50 shadow-sm sm:h-[400px] lg:h-[520px]">
+      {loading ? (
+        <div className="text-gray-400">Loading...</div>
+      ) : image ? (
+        <img
+          src={image.url}
+          alt="About Josh Maggs"
+          className="w-full h-full object-cover"
+          style={{ objectPosition: image.position }}
+        />
+      ) : (
+        <div className="text-center text-gray-400 text-sm">
+          <p>[About Josh]</p>
+          <p className="text-xs text-gray-300 mt-2">Upload in admin</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [heroImages, setHeroImages] = useState<SlideshowImage[]>([]);
   const [aboutImages, setAboutImages] = useState<SlideshowImage[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
-  const [aboutImageIndex, setAboutImageIndex] = useState(0);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -92,20 +113,6 @@ export default function Home() {
     }
   }, [heroImageIndex, heroImages.length]);
 
-  useEffect(() => {
-    if (aboutImages.length <= 1) return;
-    const timer = window.setInterval(() => {
-      setAboutImageIndex((current) => (current + 1) % aboutImages.length);
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [aboutImages]);
-
-  useEffect(() => {
-    if (aboutImageIndex >= aboutImages.length) {
-      setAboutImageIndex(0);
-    }
-  }, [aboutImageIndex, aboutImages.length]);
-
   return (
     <div>
       <section
@@ -161,24 +168,8 @@ export default function Home() {
       </section>
 
       <section className="bg-white py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-2 items-center">
-          <div className="flex h-[320px] w-full items-center justify-center overflow-hidden rounded-2xl bg-gray-50 shadow-sm sm:h-[400px] lg:h-[520px]">
-            {loading ? (
-              <div className="text-gray-400">Loading...</div>
-            ) : aboutImages[aboutImageIndex] ? (
-              <img
-                src={aboutImages[aboutImageIndex].url}
-                alt="About Josh Maggs"
-                className="w-full h-full object-cover"
-                style={{ objectPosition: aboutImages[aboutImageIndex].position }}
-              />
-            ) : (
-              <div className="text-center text-gray-400 text-sm">
-                <p>[About Josh]</p>
-                <p className="text-xs text-gray-300 mt-2">Upload in admin</p>
-              </div>
-            )}
-          </div>
+        <div className="mx-auto max-w-7xl grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] items-center">
+          <AboutImageSlot image={aboutImages[0]} loading={loading} />
           <div>
             <span className="inline-block text-xs font-bold uppercase tracking-widest text-brand-blue bg-brand-gold px-3 py-1 rounded-full">
               About Maggsy
@@ -196,6 +187,7 @@ export default function Home() {
               </p>
             </div>
           </div>
+          <AboutImageSlot image={aboutImages[1]} loading={loading} />
         </div>
       </section>
 
