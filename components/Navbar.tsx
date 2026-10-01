@@ -72,6 +72,13 @@ export default function Navbar() {
     return pathname.startsWith(href);
   };
 
+  const desktopLinkClass = (href: string) =>
+    `text-sm font-medium transition-colors ${
+      isActive(href)
+        ? "text-brand-gold border-b-2 border-brand-gold pb-1"
+        : "text-white/70 hover:text-white"
+    }`;
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-slate-900 border-b-2 border-brand-gold">
       <nav className="flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-6 px-6 lg:px-12 py-2">
@@ -95,11 +102,7 @@ export default function Navbar() {
             <Link
               key={l.href}
               href={l.href}
-              className={`text-sm font-medium transition-colors ${
-                isActive(l.href)
-                  ? "text-brand-gold border-b-2 border-brand-gold pb-1"
-                  : "text-white/70 hover:text-white"
-              }`}
+              className={desktopLinkClass(l.href)}
             >
               {l.label}
             </Link>
@@ -110,11 +113,7 @@ export default function Navbar() {
             <Link
               key={l.href}
               href={l.href}
-              className={`text-sm font-medium transition-colors ${
-                isActive(l.href)
-                  ? "text-brand-gold border-b-2 border-brand-gold pb-1"
-                  : "text-white/70 hover:text-white"
-              }`}
+              className={desktopLinkClass(l.href)}
             >
               {l.label}
             </Link>
