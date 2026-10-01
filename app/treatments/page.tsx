@@ -41,7 +41,7 @@ export default function TreatmentsPage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <div className="bg-brand-blue py-16 px-4 sm:px-6 lg:px-8">
+      <div className="bg-brand-blue pt-36 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <h1 className="text-4xl font-extrabold text-white sm:text-5xl">Treatments</h1>
           <p className="mt-2 text-xl text-brand-gold font-medium">Sports massage options built around your goals</p>

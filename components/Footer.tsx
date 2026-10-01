@@ -36,11 +36,11 @@ export default function Footer() {
   return (
     <footer className="bg-brand-blue border-t-2 border-brand-gold/30">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-3">
+        <div className="grid gap-10 text-center lg:grid-cols-3">
           {/* About */}
           <div>
             <h2 className="text-xl font-bold text-white">Josh Maggs</h2>
-            <p className="mt-3 text-sm text-white/70">
+            <p className="mx-auto mt-3 max-w-sm text-sm text-white/70">
               Sports massage therapy tailored for athletes, active individuals and anyone needing better recovery in Bristol & Bath
             </p>
           </div>
@@ -48,7 +48,7 @@ export default function Footer() {
           {/* Social Links */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-widest text-brand-gold">Follow</h3>
-            <div className="mt-4 flex gap-4">
+            <div className="mt-4 flex justify-center gap-4">
               {socials.instagram && (
                 <a
                   href={socials.instagram}
@@ -91,13 +91,13 @@ export default function Footer() {
             <ul className="mt-4 space-y-3 text-sm text-white/70">
               {socials.email && (
                 <li>
-                  <a href={`mailto:${socials.email}`} className="flex items-center gap-2 hover:text-brand-gold transition-colors">
+                  <a href={`mailto:${socials.email}`} className="flex items-center justify-center gap-2 hover:text-brand-gold transition-colors">
                     <Mail className="h-4 w-4" />
                     {socials.email}
                   </a>
                 </li>
               )}
-              <li className="flex items-center gap-2">
+              <li className="flex items-center justify-center gap-2">
                 <MapPin className="h-4 w-4" />
                 Bristol & Bath
               </li>

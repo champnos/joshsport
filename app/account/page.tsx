@@ -181,8 +181,8 @@ function AccountInner() {
 
   if (!customer) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">
-        <div className="mx-auto max-w-md rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-white px-4 pb-12 pt-36 text-gray-900">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
           <h1 className="text-2xl font-bold text-brand-blue">Log in</h1>
           <p className="text-sm text-gray-600">Access your account to manage your profile and bookings.</p>
           {redirectReason === "booking" && (
