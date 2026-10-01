@@ -69,12 +69,13 @@ export async function completeSignedImageUpload(prefix: string, path: unknown): 
   if (!uploaded) return errorResponse("Uploaded image not found.", 400);
 
   const metadata = (uploaded.metadata ?? {}) as { size?: unknown; mimetype?: unknown };
-  const size = typeof metadata.size === "number" ? metadata.size : 0;
+  const size = typeof metadata.size === "number" ? metadata.size : Number.NaN;
   const mimetype = typeof metadata.mimetype === "string" ? metadata.mimetype : "";
+  const sizeOk = Number.isFinite(size) && size > 0 && size <= MAX_IMAGE_UPLOAD_BYTES;
 
-  if (size > MAX_IMAGE_UPLOAD_BYTES || !isAllowedImageType(mimetype)) {
+  if (!sizeOk || !isAllowedImageType(mimetype)) {
     await supabaseAdmin.storage.from(IMAGE_BUCKET).remove([path]);
-    return errorResponse(size > MAX_IMAGE_UPLOAD_BYTES ? IMAGE_TOO_LARGE_MESSAGE : IMAGE_TYPE_MESSAGE, 400);
+    return errorResponse(!sizeOk ? IMAGE_TOO_LARGE_MESSAGE : IMAGE_TYPE_MESSAGE, 400);
   }
 
   return { publicUrl: getPublicUrl(path) };

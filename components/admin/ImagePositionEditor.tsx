@@ -38,6 +38,7 @@ export default function ImagePositionEditor({ imageUrl, position, frames, saving
       <div className="flex justify-center rounded-lg bg-gray-200">
         <div
           className="relative inline-block cursor-crosshair touch-none select-none overflow-hidden"
+          aria-hidden="true"
           onPointerDown={(event) => {
             draggingRef.current = true;
             event.currentTarget.setPointerCapture(event.pointerId);
