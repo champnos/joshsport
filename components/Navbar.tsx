@@ -14,7 +14,6 @@ const primaryNavLinks = [
 
 const secondaryNavLinks = [
   { href: "/account", label: "Account" },
-  { href: "/terms", label: "T's & C's" },
   { href: "/contact", label: "Contact" },
 ];
 
