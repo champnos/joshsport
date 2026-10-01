@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { escapeEmailHtml, renderEmailLayout } from "@/lib/email-template";
 
 export async function POST(request: Request) {
   try {
@@ -21,14 +22,17 @@ export async function POST(request: Request) {
       to: "contact@maggsymassagetherapy.com",
       reply_to: trimmedEmail,
       subject: `New Contact Form Submission from ${trimmedName}`,
-      html: `
-        <h2>New Contact Form Submission</h2>
-        <p><strong>Name:</strong> ${trimmedName}</p>
-        <p><strong>Email:</strong> ${trimmedEmail}</p>
-        ${trimmedPhone ? `<p><strong>Phone:</strong> ${trimmedPhone}</p>` : ""}
-        <p><strong>Message:</strong></p>
-        <p>${trimmedMessage.replace(/\n/g, "<br>")}</p>
-      `,
+      html: renderEmailLayout({
+        previewText: `New contact form submission from ${trimmedName}`,
+        bodyHtml: `
+          <h1 style="margin:0 0 20px; color:#003366; font-size:24px; line-height:1.3;">New Contact Form Submission</h1>
+          <p><strong>Name:</strong> ${escapeEmailHtml(trimmedName)}</p>
+          <p><strong>Email:</strong> ${escapeEmailHtml(trimmedEmail)}</p>
+          ${trimmedPhone ? `<p><strong>Phone:</strong> ${escapeEmailHtml(trimmedPhone)}</p>` : ""}
+          <p><strong>Message:</strong></p>
+          <p>${escapeEmailHtml(trimmedMessage).replace(/\n/g, "<br>")}</p>
+        `,
+      }),
     });
 
     return NextResponse.json({ success: true });
