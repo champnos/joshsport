@@ -147,6 +147,11 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
     setAvailableSlots([]);
   }, [selectedBooking]);
 
+  useEffect(() => {
+    setActionError("");
+    setActionSuccess("");
+  }, [selectedBookingId]);
+
   const sortedBookings = useMemo(() => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -740,6 +745,9 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
                   </button>
                 </div>
               </div>
+
+              {actionError && <p role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p>}
+              {actionSuccess && <p role="status" className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</p>}
 
               {showReschedule && (
                 <div className="mt-5 grid gap-4 lg:grid-cols-[180px_1fr_auto]">
