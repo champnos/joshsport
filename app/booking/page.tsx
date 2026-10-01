@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MedicalConditionsChecklist } from "@/components/medical-conditions-checklist";
-import { getAgeValidation, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
+import { getAgeValidation, isValidEmail as isValidEmailAddress, isValidUkPostcode, MINIMUM_BOOKING_AGE, normalizePostcode } from "@/lib/booking-rules";
 import { hasNonNoneMedicalConditions, toggleMedicalCondition } from "@/lib/medical-conditions";
 import {
   DEFAULT_TERMS_AND_CONDITIONS,
@@ -76,6 +76,7 @@ interface BookingDraft {
   date: string;
   startTime: string;
   clientName: string;
+  clientEmail: string;
   clientDob: string;
   clientPhone: string;
   clientAddress: string;
@@ -110,6 +111,7 @@ function hasMeaningfulBookingDraft(draft: BookingDraft) {
     draft.date !== "" ||
     draft.startTime !== "" ||
     draft.clientName.trim() !== "" ||
+    draft.clientEmail.trim() !== "" ||
     draft.clientDob !== "" ||
     draft.clientPhone.trim() !== "" ||
     draft.clientAddress.trim() !== "" ||
@@ -155,8 +157,7 @@ function BookingInner() {
 
   const [bookingWindowDays, setBookingWindowDays] = useState(30);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isCustomerAuthenticated, setIsCustomerAuthenticated] = useState(false);
-  const [isCustomerVerified, setIsCustomerVerified] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
   const [workingDates, setWorkingDates] = useState<Set<string>>(new Set());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [date, setDate] = useState("");
@@ -196,7 +197,6 @@ function BookingInner() {
   const outOfRangeAlertedPostcodeRef = useRef("");
   const previousFocusedElementRef = useRef<HTMLElement | null>(null);
   const termsDialogRef = useRef<HTMLDivElement | null>(null);
-  const hasRedirectedForAuthRef = useRef(false);
   const hasRestoredDraftRef = useRef(false);
   const latestBookingDraftRef = useRef<BookingDraft | null>(null);
 
@@ -229,16 +229,10 @@ function BookingInner() {
     }
   }, []);
 
-  const redirectToLogin = useCallback(
-    (reason: "booking" | "session-expired") => {
-      if (hasRedirectedForAuthRef.current) return;
-      hasRedirectedForAuthRef.current = true;
-
-      persistBookingDraft();
-      router.replace(`/account?redirect=${encodeURIComponent(BOOKING_REDIRECT_PATH)}&reason=${reason}`);
-    },
-    [persistBookingDraft, router],
-  );
+  const goToLoginForPrefill = useCallback(() => {
+    persistBookingDraft();
+    router.push(`/account?redirect=${encodeURIComponent(BOOKING_REDIRECT_PATH)}&reason=booking`);
+  }, [persistBookingDraft, router]);
 
   // Load treatments, settings, and working dates on mount
   useEffect(() => {
@@ -250,40 +244,29 @@ function BookingInner() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const sessionRes = await fetch("/api/auth/me");
-        if (!sessionRes.ok) {
-          setClientEmail("");
-          setIsCustomerAuthenticated(false);
-          setIsCustomerVerified(false);
-          redirectToLogin("booking");
-          return;
-        }
-
-        const sessionData = (await sessionRes.json()) as CustomerSessionResponse;
-        if (!sessionData.customer?.email) {
-          setClientEmail("");
-          setIsCustomerAuthenticated(false);
-          setIsCustomerVerified(false);
-          redirectToLogin("booking");
-          return;
-        }
-
-        setClientEmail(sessionData.customer.email);
-        setIsCustomerAuthenticated(true);
-        setIsCustomerVerified(Boolean(sessionData.customer.email_verified));
-
-        if (!sessionData.customer.email_verified) return;
-
-        const [profileRes, treatmentsRes, settingsRes, datesRes, termsRes] = await Promise.all([
-          fetch("/api/account/profile"),
+        const [sessionRes, treatmentsRes, settingsRes, datesRes, termsRes] = await Promise.all([
+          fetch("/api/auth/me").catch(() => null),
           fetch("/api/treatments"),
           fetch("/api/admin/settings"),
           fetch("/api/working-dates"),
           fetch("/api/terms"),
         ]);
 
+        const sessionData =
+          sessionRes && sessionRes.ok ? ((await sessionRes.json().catch(() => null)) as CustomerSessionResponse | null) : null;
+        const sessionCustomer =
+          sessionData?.customer?.email && sessionData.customer.email_verified ? sessionData.customer : null;
+
+        let profile: CustomerProfileResponse["profile"];
+        if (sessionCustomer) {
+          setAccountEmail(sessionCustomer.email);
+          const profileRes = await fetch("/api/account/profile").catch(() => null);
+          profile = profileRes && profileRes.ok ? ((await profileRes.json()) as CustomerProfileResponse).profile : undefined;
+        } else {
+          setAccountEmail("");
+        }
+
         const storedDraft = readStoredBookingDraft();
-        const profile = profileRes.ok ? ((await profileRes.json()) as CustomerProfileResponse).profile : undefined;
 
         if (storedDraft) {
           setStep(typeof storedDraft.step === "number" && storedDraft.step >= 1 && storedDraft.step <= STEPS.length ? storedDraft.step : 1);
@@ -296,6 +279,7 @@ function BookingInner() {
         }
 
         setClientName(getDraftStringValue(storedDraft?.clientName, profile?.full_name ?? ""));
+        setClientEmail(sessionCustomer ? sessionCustomer.email : getDraftStringValue(storedDraft?.clientEmail));
         setClientPhone(getDraftStringValue(storedDraft?.clientPhone, profile?.phone ?? ""));
         setClientAddress(getDraftStringValue(storedDraft?.clientAddress, profile?.address ?? ""));
         setClientPostcode(getDraftStringValue(storedDraft?.clientPostcode, profile?.postcode ?? ""));
@@ -352,17 +336,13 @@ function BookingInner() {
 
       } catch (err) {
         console.error("Failed to load data:", err);
-        setClientEmail("");
-        setIsCustomerAuthenticated(false);
-        setIsCustomerVerified(false);
-        redirectToLogin("booking");
       } finally {
         setAuthLoading(false);
         setTreatmentsLoading(false);
       }
     };
     loadData();
-  }, [readStoredBookingDraft, redirectToLogin]);
+  }, [readStoredBookingDraft]);
 
   const selectedTreatment = treatments.find((t) => t.id === treatmentId);
   const selectedPrice = selectedTreatment?.durations.find((d) => d.mins === duration)?.price || 0;
@@ -402,6 +382,7 @@ function BookingInner() {
       date,
       startTime,
       clientName,
+      clientEmail,
       clientDob,
       clientPhone,
       clientAddress,
@@ -420,6 +401,7 @@ function BookingInner() {
     additionalInfo,
     clientAddress,
     clientDob,
+    clientEmail,
     clientName,
     clientPhone,
     clientPostcode,
@@ -439,9 +421,9 @@ function BookingInner() {
   ]);
 
   useEffect(() => {
-    if (authLoading || !isCustomerAuthenticated || !isCustomerVerified) return;
+    if (authLoading) return;
     persistBookingDraft();
-  }, [authLoading, isCustomerAuthenticated, isCustomerVerified, persistBookingDraft]);
+  }, [authLoading, persistBookingDraft]);
 
   useEffect(() => {
     if (!selectedTreatment) {
@@ -676,6 +658,11 @@ function BookingInner() {
       return;
     }
 
+    if (!isValidEmailAddress(clientEmail)) {
+      setError("Please enter a valid email address so we can send your booking confirmation.");
+      return;
+    }
+
     setSubmitting(true);
     setError("");
     try {
@@ -687,16 +674,6 @@ function BookingInner() {
 
       const bookingData = await bookingRes.json();
       if (!bookingRes.ok) {
-        if (bookingRes.status === 401) {
-          setSubmitting(false);
-          redirectToLogin("session-expired");
-          return;
-        }
-
-        if (bookingRes.status === 403) {
-          setIsCustomerVerified(false);
-        }
-
         setError(bookingData.error ?? "Unable to start payment. Please try again.");
         setSubmitting(false);
         return;
@@ -804,58 +781,6 @@ function BookingInner() {
     year: "numeric",
   });
 
-  if (authLoading) {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center justify-center px-4 text-center text-brand-blue">
-          Checking your account before booking...
-        </div>
-      </div>
-    );
-  }
-
-  if (!isCustomerAuthenticated) {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center justify-center px-4 text-center text-brand-blue">
-          Redirecting you to log in...
-        </div>
-      </div>
-    );
-  }
-
-  if (!isCustomerVerified) {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
-        <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center shadow-sm">
-            <h1 className="text-2xl font-bold text-brand-blue">Verify your email before booking</h1>
-            <p className="mt-3 text-sm text-amber-900">
-              You need a verified customer account before you can continue with a booking.
-            </p>
-            <p className="mt-2 text-sm text-amber-900">
-              Please check your verification email, then come back and log in again. If your verification link has expired, create your account again to receive a fresh email.
-            </p>
-            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href="/account"
-                className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-              >
-                Back to account
-              </Link>
-              <Link
-                href="/account/register"
-                className="rounded-lg border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5"
-              >
-                Create account again
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white pt-16">
       <div className="bg-brand-blue py-12 px-4 sm:px-6 lg:px-8">
@@ -881,6 +806,27 @@ function BookingInner() {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+        {!authLoading && (
+          accountEmail ? (
+            <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              Logged in as <span className="font-semibold">{accountEmail}</span> — your saved details have been prefilled.
+            </div>
+          ) : (
+            <div className="mb-6 flex flex-col gap-2 rounded-lg border border-brand-blue/15 bg-brand-blue/5 px-4 py-3 text-sm text-brand-blue sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                Already have an account? Log in to prefill your details — or simply continue as a guest.
+              </span>
+              <button
+                type="button"
+                onClick={goToLoginForPrefill}
+                className="shrink-0 rounded-lg bg-brand-blue px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90"
+              >
+                Log in
+              </button>
+            </div>
+          )
+        )}
+
         {error && <div className="mb-6 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>}
 
         {step === 1 && (
@@ -1028,23 +974,17 @@ function BookingInner() {
                     value={value}
                     onChange={(e) => setter(e.target.value)}
                     placeholder={placeholder}
-                    readOnly={label === "Email Address"}
+                    readOnly={label === "Email Address" && Boolean(accountEmail)}
                     className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none placeholder-gray-500"
                   />
-                  {label === "Email Address" && clientEmail && (
-                    <p className="mt-1 text-xs text-gray-500">Email comes from your verified account.</p>
+                  {label === "Email Address" && accountEmail && (
+                    <p className="mt-1 text-xs text-gray-500">Email comes from your account.</p>
                   )}
-                  {label === "Email Address" && !clientEmail && (
-                     <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
-                       <p>Your email could not be loaded from your account. Please log in again to continue your booking.</p>
-                       <button
-                         type="button"
-                         onClick={() => redirectToLogin("session-expired")}
-                         className="mt-3 rounded-lg bg-brand-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-90"
-                       >
-                         Log in again
-                       </button>
-                     </div>
+                  {label === "Email Address" && !accountEmail && (
+                    <p className="mt-1 text-xs text-gray-500">We&apos;ll send your booking confirmation to this email.</p>
+                  )}
+                  {label === "Email Address" && !accountEmail && clientEmail.trim() !== "" && !isValidEmailAddress(clientEmail) && (
+                    <p className="mt-1 text-xs text-red-600">Please enter a valid email address.</p>
                   )}
                   {label === "Home Address" && (
                      <p className="mt-2 text-xs text-gray-700">
@@ -1100,16 +1040,14 @@ function BookingInner() {
                 onClick={() => setStep(4)}
                 disabled={
                   !clientName ||
-                  !clientEmail ||
+                  !isValidEmailAddress(clientEmail) ||
                   !clientDob ||
                   !clientPhone ||
                   !clientAddress ||
                   !clientPostcode ||
                   !ageValidation.isAdult ||
                   checkingDistance ||
-                  !distanceCheck?.withinRange ||
-                  authLoading ||
-                  !isCustomerVerified
+                  !distanceCheck?.withinRange
                 }
                 className="flex items-center gap-2 bg-brand-blue text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -1247,11 +1185,6 @@ function BookingInner() {
         {step === 7 && selectedTreatment && duration && (
           <div>
             <h2 className="text-2xl font-bold text-brand-blue mb-6">Confirm & Pay</h2>
-            {!authLoading && !isCustomerVerified && (
-              <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                Please <Link href="/account" className="font-semibold underline">log in and verify your email</Link> before booking.
-              </div>
-            )}
             <div className="bg-brand-blue/5 border border-brand-blue/15 rounded-2xl p-6 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Treatment</span>
@@ -1400,7 +1333,7 @@ function BookingInner() {
               disabled={
                 submitting ||
                 !clientName ||
-                !clientEmail ||
+                !isValidEmailAddress(clientEmail) ||
                 !clientDob ||
                 !clientPhone ||
                 !clientAddress ||

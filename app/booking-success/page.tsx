@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -9,6 +9,137 @@ interface BookingConfirmationSummary {
   base_amount_pence: number | null;
   discount_amount_pence: number | null;
   final_amount_pence: number | null;
+  is_guest_booking?: boolean;
+  client_name?: string;
+  client_email?: string;
+}
+
+function CreateAccountPrompt({ defaultName, defaultEmail }: { defaultName: string; defaultEmail: string }) {
+  const [dismissed, setDismissed] = useState(false);
+  const [fullName, setFullName] = useState(defaultName);
+  const [email, setEmail] = useState(defaultEmail);
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [accountExists, setAccountExists] = useState(false);
+  const [createdForEmail, setCreatedForEmail] = useState("");
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    setAccountExists(false);
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, full_name: fullName, password }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setAccountExists(response.status === 409);
+        setError(payload?.error || "Unable to create account.");
+        return;
+      }
+
+      setPassword("");
+      setCreatedForEmail(email.trim());
+    } catch {
+      setError("Unable to create account right now. Please try again later.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (dismissed) return null;
+
+  if (createdForEmail) {
+    return (
+      <div className="bg-white border border-green-200 rounded-2xl p-6 mb-8">
+        <h3 className="text-lg font-bold text-brand-blue mb-2">Almost done — check your email</h3>
+        <p className="text-sm text-gray-700">
+          We sent a verification link to <strong>{createdForEmail}</strong>. Once you verify, this booking and your details
+          will be saved to your account so you can book faster next time. Check your junk or spam folder if it doesn&apos;t arrive.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-brand-blue/15 rounded-2xl p-6 mb-8">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-bold text-brand-blue">Create an account (optional)</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Create an account to manage your bookings and book faster next time. Your booking is already confirmed either way.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="shrink-0 text-sm font-medium text-gray-500 hover:text-brand-blue"
+        >
+          No thanks
+        </button>
+      </div>
+
+      <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="create-account-name" className="block text-sm font-semibold text-brand-blue mb-1">Full name</label>
+          <input
+            id="create-account-name"
+            type="text"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+          />
+        </div>
+        <div>
+          <label htmlFor="create-account-email" className="block text-sm font-semibold text-brand-blue mb-1">Email</label>
+          <input
+            id="create-account-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="create-account-password" className="block text-sm font-semibold text-brand-blue mb-1">Password</label>
+          <input
+            id="create-account-password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="At least 8 characters"
+            minLength={8}
+            autoComplete="new-password"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+            required
+          />
+        </div>
+        {error && (
+          <p className="text-sm text-red-600" role="alert">
+            {error}{" "}
+            {accountExists && (
+              <Link href="/account" className="font-semibold underline">
+                Log in instead
+              </Link>
+            )}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-brand-blue hover:opacity-90 disabled:opacity-60"
+        >
+          {submitting ? "Creating account..." : "Create account"}
+        </button>
+      </form>
+    </div>
+  );
 }
 
 function BookingSuccessInner() {
@@ -21,6 +152,22 @@ function BookingSuccessInner() {
   const [summary, setSummary] = useState<BookingConfirmationSummary | null>(null);
   const [confirmationState, setConfirmationState] = useState<"confirming" | "confirmed" | "failed">("confirming");
   const [confirmationError, setConfirmationError] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!cancelled) setIsLoggedIn(Boolean(payload?.customer));
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoggedIn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!bookingId) {
@@ -202,6 +349,10 @@ function BookingSuccessInner() {
               </li>
             </ul>
           </div>
+        )}
+
+        {confirmationState === "confirmed" && summary?.is_guest_booking && isLoggedIn === false && (
+          <CreateAccountPrompt defaultName={summary.client_name ?? ""} defaultEmail={summary.client_email ?? ""} />
         )}
 
         {confirmationState === "confirmed" && hasDiscountDetails && summary && (

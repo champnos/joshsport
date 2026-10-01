@@ -5,6 +5,7 @@ import {
   customerSessionCookieOptions,
   hashToken,
 } from "@/lib/customer-auth";
+import { linkGuestBookingsToCustomer } from "@/lib/guest-bookings";
 
 function redirectToAccount(request: NextRequest, status: string) {
   return NextResponse.redirect(new URL(`/account/verified?status=${status}`, request.url));
@@ -48,6 +49,12 @@ export async function GET(request: NextRequest) {
       .select("id, email")
       .single();
     if (customerError || !customer) throw customerError ?? new Error("Missing customer after verification.");
+
+    try {
+      await linkGuestBookingsToCustomer(customer.id, customer.email);
+    } catch (linkError) {
+      console.error("Failed to link guest bookings to verified customer:", linkError);
+    }
 
     const response = redirectToAccount(request, "success");
     response.cookies.set(

@@ -1,11 +1,11 @@
-import { getAgeValidation } from "@/lib/booking-rules";
+import { getAgeValidation, isValidEmail } from "@/lib/booking-rules";
 import { getDistanceValidationErrorStatus, validateBookingDistance, type DistanceCheckResult } from "@/lib/distance-check";
 import { supabase } from "@/lib/supabase";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 import { VoucherValidationError, calculateDiscountAmount, validateOptionalVoucher } from "@/lib/vouchers";
 
 interface NormalizedBooking {
-  customer_id: string;
+  customer_id: string | null;
   treatment_id: string;
   treatment_name: string;
   duration_mins: number;
@@ -53,7 +53,7 @@ function normalizeBooking(body: Record<string, unknown>): NormalizedBooking {
   const rawDuration = Number(body.duration_mins);
 
   return {
-    customer_id: typeof body.customer_id === "string" ? body.customer_id.trim() : "",
+    customer_id: typeof body.customer_id === "string" && body.customer_id.trim() ? body.customer_id.trim() : null,
     treatment_id: typeof body.treatment_id === "string" ? body.treatment_id.trim() : "",
     treatment_name: typeof body.treatment_name === "string" ? body.treatment_name.trim() : "",
     duration_mins: Number.isFinite(rawDuration) ? rawDuration : 0,
@@ -111,10 +111,15 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
     client_phone,
     client_address,
     client_postcode,
+    client_email,
   } = normalizedBooking;
 
-  if (!treatment_id || !date || !start_time || !duration_mins || !client_name || !client_dob || !client_phone || !client_address || !client_postcode) {
+  if (!treatment_id || !date || !start_time || !duration_mins || !client_name || !client_email || !client_dob || !client_phone || !client_address || !client_postcode) {
     throw new BookingValidationError("Missing required fields.", 400);
+  }
+
+  if (!isValidEmail(client_email)) {
+    throw new BookingValidationError("Please enter a valid email address.", 400);
   }
 
   const ageValidation = getAgeValidation(client_dob);
