@@ -1,12 +1,6 @@
 import { Resend } from "resend";
-
-function getBaseUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
-  if (configured) return configured.replace(/\/$/, "");
-  const vercelUrl = process.env.VERCEL_URL;
-  if (vercelUrl) return `https://${vercelUrl}`;
-  return "http://localhost:3000";
-}
+import { escapeEmailHtml, renderEmailLayout } from "./email-template";
+import { getBaseUrl } from "./site-url";
 
 function getResendClient() {
   const key = process.env.RESEND_API_KEY;
@@ -26,7 +20,10 @@ export async function sendCustomerVerificationEmail(email: string, token: string
     from: "bookings@maggsymassagetherapy.com",
     to: email,
     subject: "Verify your MMT account",
-    html: `<p>Thanks for registering.</p><p>Please verify your email by clicking <a href=\"${verificationUrl}\">this link</a>.</p><p>This link expires in 24 hours.</p>`,
+    html: renderEmailLayout({
+      previewText: "Verify your MMT account email address.",
+      bodyHtml: `<h1 style="margin:0 0 20px; color:#003366; font-size:24px; line-height:1.3;">Verify your MMT account</h1><p>Thanks for registering.</p><p>Please verify your email by clicking <a href="${escapeEmailHtml(verificationUrl)}" style="color:#003366;">this link</a>.</p><p>This link expires in 24 hours.</p>`,
+    }),
   });
 }
 
@@ -43,6 +40,9 @@ export async function sendCustomerPasswordResetEmail(email: string, token: strin
     from: "bookings@maggsymassagetherapy.com",
     to: email,
     subject: "Reset your MMT account password",
-    html: `<p>We received a request to reset your password.</p><p>Use <a href=\"${resetUrl}\">this link</a> to set a new password.</p><p>This link expires in 1 hour.</p>`,
+    html: renderEmailLayout({
+      previewText: "Reset your MMT account password.",
+      bodyHtml: `<h1 style="margin:0 0 20px; color:#003366; font-size:24px; line-height:1.3;">Reset your MMT account password</h1><p>We received a request to reset your password.</p><p>Use <a href="${escapeEmailHtml(resetUrl)}" style="color:#003366;">this link</a> to set a new password.</p><p>This link expires in 1 hour.</p>`,
+    }),
   });
 }
