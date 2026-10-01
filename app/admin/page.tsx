@@ -5,6 +5,16 @@ import Link from "next/link";
 import BookingsDashboard from "@/components/admin/BookingsDashboard";
 import { Treatment, TreatmentDuration } from "@/lib/types";
 import { DEFAULT_TERMS_AND_CONDITIONS, type TermsAndConditions } from "@/lib/terms-and-conditions";
+import ImagePositionEditor from "@/components/admin/ImagePositionEditor";
+import { uploadImageDirect } from "@/lib/direct-image-upload";
+import {
+  ABOUT_DISPLAY_FRAMES,
+  ALLOWED_IMAGE_ACCEPT,
+  HERO_DISPLAY_FRAMES,
+  MAX_IMAGE_UPLOAD_MB,
+  normalizeSlideshowImages,
+  type SlideshowImage,
+} from "@/lib/slideshow-images";
 
 interface TreatmentFormState {
   id?: string;
@@ -37,8 +47,10 @@ export default function AdminPage() {
   const [form, setForm] = useState<TreatmentFormState>(emptyForm);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [deletingImage, setDeletingImage] = useState(false);
-  const [heroImages, setHeroImages] = useState<string[]>([]);
-  const [aboutImages, setAboutImages] = useState<string[]>([]);
+  const [heroImages, setHeroImages] = useState<SlideshowImage[]>([]);
+  const [aboutImages, setAboutImages] = useState<SlideshowImage[]>([]);
+  const [repositioning, setRepositioning] = useState<{ section: "hero" | "about"; url: string } | null>(null);
+  const [savingPosition, setSavingPosition] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [deletingHero, setDeletingHero] = useState(false);
   const [heroError, setHeroError] = useState("");
@@ -88,8 +100,8 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         const images = Array.isArray(data.images)
-          ? data.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
-          : data.image_url ? [data.image_url] : [];
+          ? normalizeSlideshowImages(data.images)
+          : normalizeSlideshowImages(data.image_url ? [data.image_url] : []);
         setHeroImages(images);
       }
     } catch {
@@ -103,8 +115,8 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         const images = Array.isArray(data.images)
-          ? data.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
-          : data.image_url ? [data.image_url] : [];
+          ? normalizeSlideshowImages(data.images)
+          : normalizeSlideshowImages(data.image_url ? [data.image_url] : []);
         setAboutImages(images);
       }
     } catch {
@@ -276,27 +288,15 @@ export default function AdminPage() {
     if (!editingTreatmentId || !e.target.files?.[0]) return;
 
     setUploadingImage(true);
+    setTreatmentError("");
     try {
-      const formData = new FormData();
-      formData.append("file", e.target.files[0]);
-
-      const res = await fetch(`/api/treatments/${editingTreatmentId}/image`, {
-        method: "POST",
-        headers: { "x-admin-password": password },
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setTreatmentError(data?.error ?? "Failed to upload image.");
-        return;
-      }
-
+      const data = await uploadImageDirect(`/api/treatments/${editingTreatmentId}/image`, e.target.files[0], password);
       setForm((prev) => ({ ...prev, image_url: data.image_url }));
-    } catch {
-      setTreatmentError("Failed to upload image.");
+    } catch (err) {
+      setTreatmentError(err instanceof Error ? err.message : "Failed to upload image.");
     } finally {
       setUploadingImage(false);
+      e.target.value = "";
     }
   };
 
@@ -330,25 +330,15 @@ export default function AdminPage() {
     setUploadingHero(true);
     setHeroError("");
     try {
-      const formData = new FormData();
-      formData.append("file", e.target.files[0]);
-      if (Number.isInteger(index)) formData.append("index", String(index));
-
-      const res = await fetch("/api/hero-image", {
-        method: "POST",
-        headers: { "x-admin-password": password },
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setHeroError(data?.error ?? "Failed to upload image.");
-        return;
-      }
-
-      setHeroImages(Array.isArray(data.images) ? data.images : []);
-    } catch {
-      setHeroError("Failed to upload hero image.");
+      const data = await uploadImageDirect(
+        "/api/hero-image",
+        e.target.files[0],
+        password,
+        Number.isInteger(index) ? { index } : {},
+      );
+      setHeroImages(normalizeSlideshowImages(data.images));
+    } catch (err) {
+      setHeroError(err instanceof Error ? err.message : "Failed to upload hero image.");
     } finally {
       setUploadingHero(false);
       e.target.value = "";
@@ -371,7 +361,7 @@ export default function AdminPage() {
       }
 
       const data = await res.json().catch(() => null);
-      setHeroImages(Array.isArray(data?.images) ? data.images : []);
+      setHeroImages(normalizeSlideshowImages(data?.images));
     } catch {
       setHeroError("Failed to delete hero image.");
     } finally {
@@ -396,25 +386,15 @@ export default function AdminPage() {
     setUploadingAbout(true);
     setAboutError("");
     try {
-      const formData = new FormData();
-      formData.append("file", e.target.files[0]);
-      if (Number.isInteger(index)) formData.append("index", String(index));
-
-      const res = await fetch("/api/about-image", {
-        method: "POST",
-        headers: { "x-admin-password": password },
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setAboutError(data?.error ?? "Failed to upload image.");
-        return;
-      }
-
-      setAboutImages(Array.isArray(data.images) ? data.images : []);
-    } catch {
-      setAboutError("Failed to upload about image.");
+      const data = await uploadImageDirect(
+        "/api/about-image",
+        e.target.files[0],
+        password,
+        Number.isInteger(index) ? { index } : {},
+      );
+      setAboutImages(normalizeSlideshowImages(data.images));
+    } catch (err) {
+      setAboutError(err instanceof Error ? err.message : "Failed to upload about image.");
     } finally {
       setUploadingAbout(false);
       e.target.value = "";
@@ -437,7 +417,7 @@ export default function AdminPage() {
       }
 
       const data = await res.json().catch(() => null);
-      setAboutImages(Array.isArray(data?.images) ? data.images : []);
+      setAboutImages(normalizeSlideshowImages(data?.images));
     } catch {
       setAboutError("Failed to delete about image.");
     } finally {
@@ -454,6 +434,35 @@ export default function AdminPage() {
       next.splice(nextIndex, 0, item);
       return next;
     });
+  };
+
+  const saveImagePosition = async (section: "hero" | "about", url: string, position: string) => {
+    const setError = section === "hero" ? setHeroError : setAboutError;
+    const setImages = section === "hero" ? setHeroImages : setAboutImages;
+    setSavingPosition(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/${section}-image`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ url, position }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error ?? "Failed to save image position.");
+        return;
+      }
+      const saved = normalizeSlideshowImages(data?.images).find((image) => image.url === url);
+      // Only update the position locally so any unsaved reordering is preserved.
+      setImages((current) => current.map((image) => (
+        image.url === url ? { ...image, position: saved?.position ?? position } : image
+      )));
+      setRepositioning(null);
+    } catch {
+      setError("Failed to save image position.");
+    } finally {
+      setSavingPosition(false);
+    }
   };
 
   const handleSaveSocials = async () => {
@@ -713,11 +722,12 @@ export default function AdminPage() {
                       )}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={ALLOWED_IMAGE_ACCEPT}
                         onChange={handleImageUpload}
                         disabled={uploadingImage}
                         className="w-full text-sm mb-2"
                       />
+                      <p className="text-xs text-gray-500 mb-2">JPG, PNG, WebP, GIF or AVIF up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
                       {uploadingImage && <p className="text-xs text-gray-500 mb-2">Uploading...</p>}
                       {form.image_url && (
                         <button
@@ -916,9 +926,14 @@ export default function AdminPage() {
 
               <div className="space-y-4 mb-6">
                 {heroImages.map((image, index) => (
-                  <div key={`${image}-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-3">
+                  <div key={`${image.url}-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-3">
                     <div className="rounded-lg overflow-hidden w-full h-48 bg-gray-200">
-                      <img src={image} alt={`Hero ${index + 1}`} className="w-full h-full object-cover" />
+                      <img
+                        src={image.url}
+                        alt={`Hero ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        style={{ objectPosition: image.position }}
+                      />
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -941,12 +956,20 @@ export default function AdminPage() {
                         Replace
                         <input
                           type="file"
-                          accept="image/*"
+                          accept={ALLOWED_IMAGE_ACCEPT}
                           onChange={(event) => void handleHeroImageUpload(event, index)}
                           disabled={uploadingHero}
                           className="hidden"
                         />
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => setRepositioning({ section: "hero", url: image.url })}
+                        disabled={savingPosition}
+                        className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                      >
+                        Adjust crop
+                      </button>
                       <button
                         type="button"
                         onClick={() => void handleDeleteHeroImage(index)}
@@ -956,6 +979,16 @@ export default function AdminPage() {
                         Delete
                       </button>
                     </div>
+                    {repositioning?.section === "hero" && repositioning.url === image.url && (
+                      <ImagePositionEditor
+                        imageUrl={image.url}
+                        position={image.position}
+                        frames={HERO_DISPLAY_FRAMES}
+                        saving={savingPosition}
+                        onSave={(position) => void saveImagePosition("hero", image.url, position)}
+                        onCancel={() => setRepositioning(null)}
+                      />
+                    )}
                   </div>
                 ))}
                 {heroImages.length === 0 && (
@@ -967,11 +1000,12 @@ export default function AdminPage() {
                 <label className="block text-sm font-semibold text-brand-blue">Add Image</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_ACCEPT}
                   onChange={(event) => void handleHeroImageUpload(event)}
                   disabled={uploadingHero}
                   className="w-full text-sm"
                 />
+                <p className="text-xs text-gray-500">JPG, PNG, WebP, GIF or AVIF up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
                 {uploadingHero && <p className="text-xs text-gray-500">Uploading...</p>}
                 <button
                   type="button"
@@ -991,9 +1025,14 @@ export default function AdminPage() {
 
               <div className="space-y-4 mb-6">
                 {aboutImages.map((image, index) => (
-                  <div key={`${image}-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-3">
+                  <div key={`${image.url}-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-3">
                     <div className="rounded-lg overflow-hidden w-full h-48 bg-gray-200">
-                      <img src={image} alt={`About ${index + 1}`} className="w-full h-full object-cover" />
+                      <img
+                        src={image.url}
+                        alt={`About ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        style={{ objectPosition: image.position }}
+                      />
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -1016,12 +1055,20 @@ export default function AdminPage() {
                         Replace
                         <input
                           type="file"
-                          accept="image/*"
+                          accept={ALLOWED_IMAGE_ACCEPT}
                           onChange={(event) => void handleAboutImageUpload(event, index)}
                           disabled={uploadingAbout}
                           className="hidden"
                         />
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => setRepositioning({ section: "about", url: image.url })}
+                        disabled={savingPosition}
+                        className="text-xs px-3 py-2 rounded-lg border border-gray-200 disabled:opacity-40"
+                      >
+                        Adjust crop
+                      </button>
                       <button
                         type="button"
                         onClick={() => void handleDeleteAboutImage(index)}
@@ -1031,6 +1078,16 @@ export default function AdminPage() {
                         Delete
                       </button>
                     </div>
+                    {repositioning?.section === "about" && repositioning.url === image.url && (
+                      <ImagePositionEditor
+                        imageUrl={image.url}
+                        position={image.position}
+                        frames={ABOUT_DISPLAY_FRAMES}
+                        saving={savingPosition}
+                        onSave={(position) => void saveImagePosition("about", image.url, position)}
+                        onCancel={() => setRepositioning(null)}
+                      />
+                    )}
                   </div>
                 ))}
                 {aboutImages.length === 0 && (
@@ -1042,11 +1099,12 @@ export default function AdminPage() {
                 <label className="block text-sm font-semibold text-brand-blue">Add Image</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_ACCEPT}
                   onChange={(event) => void handleAboutImageUpload(event)}
                   disabled={uploadingAbout}
                   className="w-full text-sm"
                 />
+                <p className="text-xs text-gray-500">JPG, PNG, WebP, GIF or AVIF up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
                 {uploadingAbout && <p className="text-xs text-gray-500">Uploading...</p>}
                 <button
                   type="button"
