@@ -39,7 +39,7 @@ export default function RegisterPage() {
     <div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-12 text-gray-900">
       <div className="mx-auto max-w-md rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
         <h1 className="text-2xl font-bold text-brand-blue">Create account</h1>
-        <p className="text-sm text-gray-600">Create your account to book and manage your details.</p>
+        <p className="text-sm text-gray-600">Create an account to manage your bookings and book faster next time.</p>
 
         <form className="space-y-3" onSubmit={handleRegister}>
           <input

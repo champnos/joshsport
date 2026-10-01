@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     await sendCustomerVerificationEmail(email, verificationToken);
 
     return NextResponse.json(
-      { success: true, message: "Account created. Please verify your email before booking." },
+      { success: true, message: "Account created. Please verify your email to activate your account." },
       { status: 201 },
     );
   } catch (error) {

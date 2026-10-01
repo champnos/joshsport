@@ -171,6 +171,7 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
 
   const filteredBookings = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    const termDigits = term.replace(/\D/g, "");
 
     return sortedBookings.filter((booking) => {
       if (
@@ -182,11 +183,14 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
       if (dateFilter && booking.date !== dateFilter) return false;
       if (!term) return true;
 
+      const phoneDigits = (booking.client_phone ?? "").replace(/\D/g, "");
+      if (termDigits.length >= 3 && phoneDigits.includes(termDigits)) return true;
+
       return [
-        booking.client_name,
+        booking.client_name ?? "",
         booking.client_email ?? "",
-        booking.treatment_name,
-        booking.client_phone,
+        booking.treatment_name ?? "",
+        booking.client_phone ?? "",
       ].some((value) => value.toLowerCase().includes(term));
     });
   }, [dateFilter, searchTerm, sortedBookings, statusFilter]);
@@ -299,6 +303,23 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
     setSearchTerm("");
     setStatusFilter("all");
     setDateFilter("");
+  };
+
+  const selectedClientBookingCount = useMemo(() => {
+    if (!selectedBooking) return 0;
+    const email = (selectedBooking.client_email ?? "").trim().toLowerCase();
+    return bookings.filter(
+      (booking) =>
+        (email !== "" && (booking.client_email ?? "").trim().toLowerCase() === email) ||
+        (selectedBooking.client_phone !== "" && booking.client_phone === selectedBooking.client_phone),
+    ).length;
+  }, [bookings, selectedBooking]);
+
+  const showClientBookingHistory = (booking: Booking) => {
+    setSearchTerm((booking.client_email ?? "").trim() || booking.client_phone);
+    setStatusFilter("all");
+    setDateFilter("");
+    setSelectedBookingId(null);
   };
 
   const monthCells = getMonthGrid(currentMonth);
@@ -549,6 +570,9 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
                     {isPendingStatus(booking.status) && (
                       <span className="rounded-full bg-brand-gold px-3 py-1 text-xs font-bold text-brand-blue">Needs attention</span>
                     )}
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                      {booking.customer_id ? "Account" : "Guest"}
+                    </span>
                   </div>
                   <p className="text-sm font-medium text-gray-700">{booking.treatment_name} · {booking.duration_mins} mins</p>
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-600">
@@ -630,7 +654,15 @@ export default function BookingsDashboard({ adminToken, onUnauthorized }: Bookin
                   <div><dt className="font-semibold text-gray-500">Phone</dt><dd>{selectedBooking.client_phone}</dd></div>
                   <div><dt className="font-semibold text-gray-500">Date of birth</dt><dd>{selectedBooking.client_dob}</dd></div>
                   <div><dt className="font-semibold text-gray-500">Address</dt><dd>{selectedBooking.client_address}, {selectedBooking.client_postcode}</dd></div>
+                  <div><dt className="font-semibold text-gray-500">Customer type</dt><dd>{selectedBooking.customer_id ? "Registered account" : "Guest checkout"}</dd></div>
                 </dl>
+                <button
+                  type="button"
+                  onClick={() => showClientBookingHistory(selectedBooking)}
+                  className="mt-4 text-sm font-semibold text-brand-blue underline-offset-4 hover:underline"
+                >
+                  View all bookings for this client ({selectedClientBookingCount})
+                </button>
               </div>
 
               <div className="rounded-2xl bg-gray-50 p-5">

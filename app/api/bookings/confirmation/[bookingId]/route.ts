@@ -20,10 +20,16 @@ function toBookingResponse(data: {
   base_amount_pence: number | null;
   discount_amount_pence: number | null;
   final_amount_pence: number | null;
+  customer_id?: string | null;
+  client_name?: string | null;
+  client_email?: string | null;
 }) {
   return {
     id: data.id,
     status: data.status,
+    is_guest_booking: !data.customer_id,
+    client_name: data.client_name ?? "",
+    client_email: data.client_email ?? "",
     voucher_code: data.voucher_code,
     base_amount_pence: data.base_amount_pence,
     discount_amount_pence: data.discount_amount_pence,

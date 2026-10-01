@@ -97,24 +97,29 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authenticatedCustomer = await getAuthenticatedCustomer(request);
-    if (!authenticatedCustomer) {
-      return NextResponse.json({ error: "Please log in to create a booking." }, { status: 401 });
-    }
-    if (!authenticatedCustomer.email_verified_at) {
-      return NextResponse.json({ error: "Please verify your email before booking." }, { status: 403 });
-    }
+    const verifiedCustomer = authenticatedCustomer?.email_verified_at ? authenticatedCustomer : null;
 
     const body = await request.json();
-    const requestedClientEmail = normalizeEmail(body?.client_email);
-    if (requestedClientEmail && requestedClientEmail !== authenticatedCustomer.email) {
-      return NextResponse.json(
-        { error: "The booking email must match your verified account email." },
-        { status: 400 },
-      );
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid booking payload." }, { status: 400 });
     }
 
-    body.client_email = authenticatedCustomer.email;
-    body.customer_id = authenticatedCustomer.id;
+    if (verifiedCustomer) {
+      const requestedClientEmail = normalizeEmail(body.client_email);
+      if (requestedClientEmail && requestedClientEmail !== verifiedCustomer.email) {
+        return NextResponse.json(
+          { error: "The booking email must match your account email." },
+          { status: 400 },
+        );
+      }
+
+      body.client_email = verifiedCustomer.email;
+      body.customer_id = verifiedCustomer.id;
+    } else {
+      // Guest checkout: contact details are stored directly on the booking row.
+      body.client_email = normalizeEmail(body.client_email);
+      body.customer_id = null;
+    }
 
     const pendingCutoff = new Date(Date.now() - BOOKING_CHECKOUT_TOKEN_TTL_MS).toISOString();
     const requestedTreatmentId = typeof body?.treatment_id === "string" ? body.treatment_id.trim() : "";
@@ -222,13 +227,15 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    try {
-      await supabaseAdmin
-        .from("customers")
-        .update(buildCustomerProfileUpdate(preparedBooking.normalizedBooking))
-        .eq("id", authenticatedCustomer.id);
-    } catch (profileUpdateError) {
-      console.error("Failed to sync customer profile from booking:", profileUpdateError);
+    if (verifiedCustomer) {
+      try {
+        await supabaseAdmin
+          .from("customers")
+          .update(buildCustomerProfileUpdate(preparedBooking.normalizedBooking))
+          .eq("id", verifiedCustomer.id);
+      } catch (profileUpdateError) {
+        console.error("Failed to sync customer profile from booking:", profileUpdateError);
+      }
     }
 
     return NextResponse.json(

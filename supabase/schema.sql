@@ -102,6 +102,9 @@ begin
 end;
 $$;
 
+-- Guest bookings keep customer_id NULL; contact details live on the booking row.
+create index if not exists bookings_client_email_idx on bookings (client_email);
+
 create table if not exists vouchers (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,

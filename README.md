@@ -78,6 +78,9 @@ Vercel rejects API request bodies over 4.5MB, so the admin panel uploads hero, a
 1. Run `supabase/raise-image-upload-limit.sql` in the Supabase SQL editor (sets the bucket file size limit to 20MB).
 2. Make sure **Storage → Settings → Upload file size limit** for the project is at least 20MB.
 
+## Guest checkout
+Booking does not require an account. Guests enter their contact details directly in the booking flow and those details are stored on the booking row (`customer_id` stays `NULL`). Logged-in customers can optionally log in at the start of booking to prefill their saved details, and guests are offered an optional account-creation prompt after payment. When a guest verifies an account with the same email, their earlier guest bookings are linked to it. For existing databases, run `supabase/allow-guest-bookings.sql` in the Supabase SQL editor.
+
 ## Adding the Real Logo
 Replace `public/logo.svg` with the real MMT logo file (`logo.png` or `logo.svg`), then update `components/Navbar.tsx` to use:
 ```tsx

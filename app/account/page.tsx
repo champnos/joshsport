@@ -187,7 +187,11 @@ function AccountInner() {
           <p className="text-sm text-gray-600">Access your account to manage your profile and bookings.</p>
           {redirectReason === "booking" && (
             <div className="rounded-lg border border-brand-gold/40 bg-brand-gold/10 px-3 py-2 text-sm text-brand-blue">
-              Please log in before starting your booking.
+              Log in to prefill your booking details, or{" "}
+              <Link href="/booking" className="font-semibold underline">
+                continue your booking as a guest
+              </Link>
+              .
             </div>
           )}
           {redirectReason === "session-expired" && (
