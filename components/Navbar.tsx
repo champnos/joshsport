@@ -6,10 +6,13 @@ import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { CUSTOMER_SESSION_CHANGED_EVENT } from "@/lib/customer-session-events";
 
-const navLinks = [
+const primaryNavLinks = [
   { href: "/", label: "Home" },
   { href: "/treatments", label: "Treatments" },
   { href: "/booking", label: "Book Now" },
+];
+
+const secondaryNavLinks = [
   { href: "/account", label: "Account" },
   { href: "/terms", label: "T's & C's" },
   { href: "/contact", label: "Contact" },
@@ -56,10 +59,11 @@ export default function Navbar() {
     };
   }, []);
 
-  const links = useMemo(
-    () => (showAdminLink ? [...navLinks, { href: "/admin", label: "Admin" }] : navLinks),
+  const rightLinks = useMemo(
+    () => (showAdminLink ? [...secondaryNavLinks, { href: "/admin", label: "Admin" }] : secondaryNavLinks),
     [showAdminLink],
   );
+  const links = useMemo(() => [...primaryNavLinks, ...rightLinks], [rightLinks]);
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -70,8 +74,8 @@ export default function Navbar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-slate-900 border-b-2 border-brand-gold">
-      <nav className="flex items-center justify-between px-6 lg:px-12 py-2">
-        <Link href="/" className="flex items-center flex-shrink-0">
+      <nav className="flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-6 px-6 lg:px-12 py-2">
+        <Link href="/" className="flex items-center flex-shrink-0 md:justify-self-start">
           <div className="drop-shadow-2xl" style={{
             filter: "drop-shadow(0 0 8px rgba(255, 255, 255, 0.5)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.3))"
           }}>
@@ -86,8 +90,23 @@ export default function Navbar() {
           </div>
         </Link>
 
-        <div className="hidden md:flex items-center gap-12">
-          {links.map((l) => (
+        <div className="hidden md:flex items-center justify-center gap-6 lg:gap-12">
+          {primaryNavLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`text-sm font-medium transition-colors ${
+                isActive(l.href)
+                  ? "text-brand-gold border-b-2 border-brand-gold pb-1"
+                  : "text-white/70 hover:text-white"
+              }`}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </div>
+        <div className="hidden md:flex md:justify-self-end items-center gap-6 lg:gap-8">
+          {rightLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
