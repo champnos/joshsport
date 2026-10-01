@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Activity, ShieldCheck, TimerReset, Waves } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Treatment } from "@/lib/types";
+import { normalizeSlideshowImages, type SlideshowImage } from "@/lib/slideshow-images";
 
 const benefits = [
   {
@@ -29,8 +30,8 @@ const benefits = [
 ];
 
 export default function Home() {
-  const [heroImages, setHeroImages] = useState<string[]>([]);
-  const [aboutImages, setAboutImages] = useState<string[]>([]);
+  const [heroImages, setHeroImages] = useState<SlideshowImage[]>([]);
+  const [aboutImages, setAboutImages] = useState<SlideshowImage[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [aboutImageIndex, setAboutImageIndex] = useState(0);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
@@ -47,17 +48,17 @@ export default function Home() {
 
         if (heroRes.ok) {
           const heroData = await heroRes.json();
-          const images = Array.isArray(heroData.images)
-            ? heroData.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
-            : heroData.image_url ? [heroData.image_url] : [];
+          const images = normalizeSlideshowImages(
+            Array.isArray(heroData.images) ? heroData.images : heroData.image_url ? [heroData.image_url] : [],
+          );
           setHeroImages(images);
         }
 
         if (aboutRes.ok) {
           const aboutData = await aboutRes.json();
-          const images = Array.isArray(aboutData.images)
-            ? aboutData.images.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
-            : aboutData.image_url ? [aboutData.image_url] : [];
+          const images = normalizeSlideshowImages(
+            Array.isArray(aboutData.images) ? aboutData.images : aboutData.image_url ? [aboutData.image_url] : [],
+          );
           setAboutImages(images);
         }
 
@@ -143,7 +144,12 @@ export default function Home() {
             {loading ? (
               <div className="text-white/60">Loading...</div>
             ) : heroImages[heroImageIndex] ? (
-              <img src={heroImages[heroImageIndex]} alt="Josh Maggs" className="w-full h-full object-cover" />
+              <img
+                src={heroImages[heroImageIndex].url}
+                alt="Josh Maggs"
+                className="w-full h-full object-cover"
+                style={{ objectPosition: heroImages[heroImageIndex].position }}
+              />
             ) : (
               <div className="text-center text-white/60 text-sm">
                 <p>[Josh&apos;s Photo]</p>
@@ -160,7 +166,12 @@ export default function Home() {
             {loading ? (
               <div className="text-gray-400">Loading...</div>
             ) : aboutImages[aboutImageIndex] ? (
-              <img src={aboutImages[aboutImageIndex]} alt="About Josh Maggs" className="w-full h-full object-cover" />
+              <img
+                src={aboutImages[aboutImageIndex].url}
+                alt="About Josh Maggs"
+                className="w-full h-full object-cover"
+                style={{ objectPosition: aboutImages[aboutImageIndex].position }}
+              />
             ) : (
               <div className="text-center text-gray-400 text-sm">
                 <p>[About Josh]</p>

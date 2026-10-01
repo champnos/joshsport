@@ -2,50 +2,46 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { completeSignedImageUpload, createSignedImageUpload, uploadImageFromFormData } from "@/lib/image-upload";
+
+async function saveTreatmentImage(id: string, publicUrl: string) {
+  const { error: updateError } = await supabaseAdmin
+    .from("treatments")
+    .update({ image_url: publicUrl })
+    .eq("id", id);
+
+  if (updateError) {
+    console.error("Update error:", updateError);
+    throw updateError;
+  }
+
+  return NextResponse.json({ image_url: publicUrl }, { status: 200 });
+}
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
-    
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-    
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (!/^[A-Za-z0-9-]+$/.test(params.id)) {
+      return NextResponse.json({ error: "Invalid treatment id." }, { status: 400 });
     }
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
-    // Upload to Supabase storage
-    const fileName = `${params.id}-${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("treatment-images")
-      .upload(fileName, buffer, { contentType: file.type });
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      throw uploadError;
+    if ((request.headers.get("content-type") ?? "").includes("application/json")) {
+      const body = await request.json().catch(() => null);
+      if (!body || typeof body !== "object") {
+        return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+      }
+      if (body.action === "create-upload") return await createSignedImageUpload(params.id, body);
+      if (body.action === "complete-upload") {
+        const result = await completeSignedImageUpload(params.id, body.path);
+        if ("response" in result) return result.response;
+        return await saveTreatmentImage(params.id, result.publicUrl);
+      }
+      return NextResponse.json({ error: "Unknown action." }, { status: 400 });
     }
 
-    // Get public URL
-    const { data: { publicUrl } } = supabaseAdmin.storage
-      .from("treatment-images")
-      .getPublicUrl(fileName);
-
-    // Update treatment record with image URL
-    const { error: updateError } = await supabaseAdmin
-      .from("treatments")
-      .update({ image_url: publicUrl })
-      .eq("id", params.id);
-
-    if (updateError) {
-      console.error("Update error:", updateError);
-      throw updateError;
-    }
-
-    return NextResponse.json({ image_url: publicUrl }, { status: 200 });
+    const result = await uploadImageFromFormData(params.id, await request.formData());
+    if ("response" in result) return result.response;
+    return await saveTreatmentImage(params.id, result.publicUrl);
   } catch (err) {
     console.error("Image upload failed:", err);
     return NextResponse.json({ error: "Unable to upload image." }, { status: 500 });

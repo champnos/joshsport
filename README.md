@@ -73,6 +73,11 @@ Visit:
    - `BOOKING_CONFIRMATION_SECRET`
 4. Deploy — Vercel will auto-build on every push to `main`
 
+## Image uploads (up to 20MB)
+Vercel rejects API request bodies over 4.5MB, so the admin panel uploads hero, about and treatment photos directly from the browser to the Supabase `treatment-images` bucket using short-lived signed upload URLs issued by the admin API routes. To allow 20MB photos:
+1. Run `supabase/raise-image-upload-limit.sql` in the Supabase SQL editor (sets the bucket file size limit to 20MB).
+2. Make sure **Storage → Settings → Upload file size limit** for the project is at least 20MB.
+
 ## Adding the Real Logo
 Replace `public/logo.svg` with the real MMT logo file (`logo.png` or `logo.svg`), then update `components/Navbar.tsx` to use:
 ```tsx
