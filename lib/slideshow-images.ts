@@ -9,6 +9,14 @@ export const MAX_IMAGE_UPLOAD_MB = 20;
 export const MAX_IMAGE_UPLOAD_BYTES = MAX_IMAGE_UPLOAD_MB * 1024 * 1024;
 export const IMAGE_TOO_LARGE_MESSAGE = `Image must be ${MAX_IMAGE_UPLOAD_MB}MB or smaller.`;
 
+export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
+export const ALLOWED_IMAGE_ACCEPT = ALLOWED_IMAGE_TYPES.join(",");
+export const IMAGE_TYPE_MESSAGE = "Only JPG, PNG, WebP, GIF or AVIF images are allowed.";
+
+export function isAllowedImageType(contentType: string) {
+  return ALLOWED_IMAGE_TYPES.includes(contentType.toLowerCase());
+}
+
 // Largest (desktop) and smallest (mobile) sizes of the homepage image boxes in app/page.tsx.
 // object-cover + percentage object-position crops depend only on the box's aspect ratio,
 // so scaled-down previews with the same ratio show exactly what the live site shows.

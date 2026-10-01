@@ -21,7 +21,7 @@ async function saveTreatmentImage(id: string, publicUrl: string) {
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
-    if (!/^[A-Za-z0-9-]+$/.test(params.id)) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.id)) {
       return NextResponse.json({ error: "Invalid treatment id." }, { status: 400 });
     }
 

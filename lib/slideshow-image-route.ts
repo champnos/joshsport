@@ -127,7 +127,7 @@ export function createSlideshowImageHandlers({ settingsKey, legacyKey, filePrefi
       await saveImages(images);
       return imagesResponse(images);
     } catch (err) {
-      console.error("Image order update failed:", err);
+      console.error(`${label} image order update failed:`, err);
       return NextResponse.json({ error: "Unable to save image order." }, { status: 500 });
     }
   }

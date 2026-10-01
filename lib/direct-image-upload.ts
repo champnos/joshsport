@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { IMAGE_TOO_LARGE_MESSAGE, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/slideshow-images";
+import { IMAGE_TOO_LARGE_MESSAGE, IMAGE_TYPE_MESSAGE, isAllowedImageType, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/slideshow-images";
 
 async function readJson(res: Response) {
   return res.json().catch(() => null);
@@ -13,7 +13,7 @@ export async function uploadImageDirect(
   adminPassword: string,
   extra: Record<string, unknown> = {},
 ) {
-  if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed.");
+  if (!isAllowedImageType(file.type)) throw new Error(IMAGE_TYPE_MESSAGE);
   if (file.size > MAX_IMAGE_UPLOAD_BYTES) throw new Error(IMAGE_TOO_LARGE_MESSAGE);
 
   const headers = { "x-admin-password": adminPassword, "Content-Type": "application/json" };

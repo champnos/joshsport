@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { IMAGE_TOO_LARGE_MESSAGE, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/slideshow-images";
+import { IMAGE_TOO_LARGE_MESSAGE, IMAGE_TYPE_MESSAGE, isAllowedImageType, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/slideshow-images";
 
 export const IMAGE_BUCKET = "treatment-images";
 
@@ -39,8 +39,8 @@ export async function createSignedImageUpload(prefix: string, body: Record<strin
   const size = typeof body.size === "number" ? body.size : Number.NaN;
 
   if (!fileName) return NextResponse.json({ error: "No file provided" }, { status: 400 });
-  if (!contentType.startsWith("image/")) {
-    return NextResponse.json({ error: "Only image files are allowed." }, { status: 400 });
+  if (!isAllowedImageType(contentType)) {
+    return NextResponse.json({ error: IMAGE_TYPE_MESSAGE }, { status: 400 });
   }
   if (!Number.isFinite(size) || size <= 0) {
     return NextResponse.json({ error: "Invalid file size." }, { status: 400 });
@@ -72,9 +72,9 @@ export async function completeSignedImageUpload(prefix: string, path: unknown): 
   const size = typeof metadata.size === "number" ? metadata.size : 0;
   const mimetype = typeof metadata.mimetype === "string" ? metadata.mimetype : "";
 
-  if (size > MAX_IMAGE_UPLOAD_BYTES || !mimetype.startsWith("image/")) {
+  if (size > MAX_IMAGE_UPLOAD_BYTES || !isAllowedImageType(mimetype)) {
     await supabaseAdmin.storage.from(IMAGE_BUCKET).remove([path]);
-    return errorResponse(size > MAX_IMAGE_UPLOAD_BYTES ? IMAGE_TOO_LARGE_MESSAGE : "Only image files are allowed.", 400);
+    return errorResponse(size > MAX_IMAGE_UPLOAD_BYTES ? IMAGE_TOO_LARGE_MESSAGE : IMAGE_TYPE_MESSAGE, 400);
   }
 
   return { publicUrl: getPublicUrl(path) };
@@ -84,7 +84,7 @@ export async function completeSignedImageUpload(prefix: string, path: unknown): 
 export async function uploadImageFromFormData(prefix: string, formData: FormData): Promise<UploadResult> {
   const file = formData.get("file");
   if (!(file instanceof File)) return errorResponse("No file provided", 400);
-  if (!file.type.startsWith("image/")) return errorResponse("Only image files are allowed.", 400);
+  if (!isAllowedImageType(file.type)) return errorResponse(IMAGE_TYPE_MESSAGE, 400);
   if (file.size > MAX_IMAGE_UPLOAD_BYTES) return errorResponse(IMAGE_TOO_LARGE_MESSAGE, 400);
 
   const buffer = Buffer.from(await file.arrayBuffer());

@@ -9,6 +9,7 @@ import ImagePositionEditor from "@/components/admin/ImagePositionEditor";
 import { uploadImageDirect } from "@/lib/direct-image-upload";
 import {
   ABOUT_DISPLAY_FRAMES,
+  ALLOWED_IMAGE_ACCEPT,
   HERO_DISPLAY_FRAMES,
   MAX_IMAGE_UPLOAD_MB,
   normalizeSlideshowImages,
@@ -721,12 +722,12 @@ export default function AdminPage() {
                       )}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={ALLOWED_IMAGE_ACCEPT}
                         onChange={handleImageUpload}
                         disabled={uploadingImage}
                         className="w-full text-sm mb-2"
                       />
-                      <p className="text-xs text-gray-500 mb-2">JPG, PNG or WebP up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
+                      <p className="text-xs text-gray-500 mb-2">JPG, PNG, WebP, GIF or AVIF up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
                       {uploadingImage && <p className="text-xs text-gray-500 mb-2">Uploading...</p>}
                       {form.image_url && (
                         <button
@@ -955,7 +956,7 @@ export default function AdminPage() {
                         Replace
                         <input
                           type="file"
-                          accept="image/*"
+                          accept={ALLOWED_IMAGE_ACCEPT}
                           onChange={(event) => void handleHeroImageUpload(event, index)}
                           disabled={uploadingHero}
                           className="hidden"
@@ -999,12 +1000,12 @@ export default function AdminPage() {
                 <label className="block text-sm font-semibold text-brand-blue">Add Image</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_ACCEPT}
                   onChange={(event) => void handleHeroImageUpload(event)}
                   disabled={uploadingHero}
                   className="w-full text-sm"
                 />
-                <p className="text-xs text-gray-500">JPG, PNG or WebP up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
+                <p className="text-xs text-gray-500">JPG, PNG, WebP, GIF or AVIF up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
                 {uploadingHero && <p className="text-xs text-gray-500">Uploading...</p>}
                 <button
                   type="button"
@@ -1054,7 +1055,7 @@ export default function AdminPage() {
                         Replace
                         <input
                           type="file"
-                          accept="image/*"
+                          accept={ALLOWED_IMAGE_ACCEPT}
                           onChange={(event) => void handleAboutImageUpload(event, index)}
                           disabled={uploadingAbout}
                           className="hidden"
@@ -1098,12 +1099,12 @@ export default function AdminPage() {
                 <label className="block text-sm font-semibold text-brand-blue">Add Image</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_ACCEPT}
                   onChange={(event) => void handleAboutImageUpload(event)}
                   disabled={uploadingAbout}
                   className="w-full text-sm"
                 />
-                <p className="text-xs text-gray-500">JPG, PNG or WebP up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
+                <p className="text-xs text-gray-500">JPG, PNG, WebP, GIF or AVIF up to {MAX_IMAGE_UPLOAD_MB}MB.</p>
                 {uploadingAbout && <p className="text-xs text-gray-500">Uploading...</p>}
                 <button
                   type="button"
