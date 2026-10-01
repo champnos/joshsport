@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isAuthorizedAdminRequest, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 
@@ -28,7 +28,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         return NextResponse.json({ error: "Date and start time are required to reschedule." }, { status: 400 });
       }
 
-      const { data: booking, error: bookingError } = await supabase
+      const { data: booking, error: bookingError } = await supabaseAdmin
         .from("bookings")
         .select("id, duration_mins")
         .eq("id", params.id)
@@ -40,7 +40,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 
       await ensureRollingWorkingDates();
 
-      const { data: workingDateData, error: workingDateError } = await supabase
+      const { data: workingDateData, error: workingDateError } = await supabaseAdmin
         .from("working_dates")
         .select("date, available, start_time, end_time, blocked_slots")
         .eq("date", nextDate)
@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         return NextResponse.json({ error: "Selected date is not available for bookings." }, { status: 409 });
       }
 
-      const { data: existingBookings, error: existingBookingsError } = await supabase
+      const { data: existingBookings, error: existingBookingsError } = await supabaseAdmin
         .from("bookings")
         .select("start_time, duration_mins")
         .eq("date", nextDate)
@@ -79,10 +79,14 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "No valid booking changes were provided." }, { status: 400 });
     }
 
-    const { data, error } = await supabase.from("bookings").update(updates).eq("id", params.id).select().single();
+    const { data, error } = await supabaseAdmin.from("bookings").update(updates).eq("id", params.id).select().maybeSingle();
     if (error) throw error;
+    if (!data) {
+      return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+    }
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error("Failed to update booking:", err);
     return NextResponse.json({ error: "Unable to update booking." }, { status: 500 });
   }
 }
