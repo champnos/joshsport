@@ -43,8 +43,8 @@ export async function sendBookingEmails(booking: BookingEmailPayload) {
     if (!resend) throw new Error("Missing RESEND_API_KEY");
 
     await resend.emails.send({
-      from: "bookings@maggsymassagetherapy.com",
-      to: process.env.JOSH_EMAIL || "josh@maggsymassagetherapy.com",
+      from: "contact@maggsymassagetherapy.com",
+      to: "contact@maggsymassagetherapy.com",
       subject: `New Booking: ${booking.client_name} - ${booking.treatment_name}`,
       html: renderEmailLayout({
         previewText: `New booking from ${booking.client_name}: ${booking.treatment_name}`,
@@ -87,7 +87,7 @@ export async function sendBookingEmails(booking: BookingEmailPayload) {
     if (!resend) throw new Error("Missing RESEND_API_KEY");
 
     await resend.emails.send({
-      from: "bookings@maggsymassagetherapy.com",
+      from: "contact@maggsymassagetherapy.com",
       to: booking.client_email,
       subject: "Your Booking Confirmation - Maggy's Massage Therapy",
       html: renderEmailLayout({
@@ -110,7 +110,7 @@ export async function sendBookingEmails(booking: BookingEmailPayload) {
             <li>For any questions, feel free to reach out before your appointment</li>
           </ul>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px; border-collapse:collapse; background-color:#fff8e6; border-left:4px solid #d4a62d;">
-            <tr><td style="padding:14px; color:#003366;"><strong>Questions?</strong> Contact us at <a href="mailto:info@maggsymassagetherapy.com" style="color:#003366;">info@maggsymassagetherapy.com</a> or call for support.</td></tr>
+            <tr><td style="padding:14px; color:#003366;"><strong>Questions?</strong> Contact us at <a href="mailto:contact@maggsymassagetherapy.com" style="color:#003366;">contact@maggsymassagetherapy.com</a> or call for support.</td></tr>
           </table>
           <p style="margin:24px 0 8px;">We look forward to seeing you!</p>
           <p style="margin:0; color:#003366; font-weight:bold;">Maggy's Massage Therapy Team</p>

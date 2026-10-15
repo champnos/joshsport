@@ -17,7 +17,7 @@ export async function sendCustomerVerificationEmail(email: string, token: string
   }
 
   await resend.emails.send({
-    from: "bookings@maggsymassagetherapy.com",
+    from: "contact@maggsymassagetherapy.com",
     to: email,
     subject: "Verify your MMT account",
     html: renderEmailLayout({
@@ -37,7 +37,7 @@ export async function sendCustomerPasswordResetEmail(email: string, token: strin
   }
 
   await resend.emails.send({
-    from: "bookings@maggsymassagetherapy.com",
+    from: "contact@maggsymassagetherapy.com",
     to: email,
     subject: "Reset your MMT account password",
     html: renderEmailLayout({
