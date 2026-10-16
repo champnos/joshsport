@@ -1,6 +1,7 @@
 import { getAgeValidation, isValidEmail } from "@/lib/booking-rules";
 import { getDistanceValidationErrorStatus, validateBookingDistance, type DistanceCheckResult } from "@/lib/distance-check";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensureRollingWorkingDates, getBookableSlots, getBookingSettings } from "@/lib/working-dates";
 import { VoucherValidationError, calculateDiscountAmount, validateOptionalVoucher } from "@/lib/vouchers";
 
@@ -156,11 +157,12 @@ export async function validateAndPrepareBooking(body: unknown): Promise<Prepared
     throw new BookingValidationError("Selected date is not available for bookings.", 409);
   }
 
-  const { data: existingBookings } = await supabase
+  const { data: existingBookings, error: existingBookingsError } = await supabaseAdmin
     .from("bookings")
     .select("start_time, duration_mins")
     .eq("date", date)
-    .eq("status", "confirmed");
+    .in("status", ["confirmed", "pending_payment"]);
+  if (existingBookingsError) throw existingBookingsError;
 
   const settings = await getBookingSettings();
   const available = getBookableSlots(date, duration_mins, workingDateData, existingBookings ?? [], settings);

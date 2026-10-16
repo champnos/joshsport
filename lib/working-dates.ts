@@ -13,6 +13,7 @@ export interface WorkingDateRow {
 
 export interface BookingSettings {
   booking_window_days: number;
+  buffer_mins_before_booking: number;
   buffer_mins_after_booking: number;
   default_start_time: string;
   default_end_time: string;
@@ -20,6 +21,7 @@ export interface BookingSettings {
 
 const DEFAULT_SETTINGS: BookingSettings = {
   booking_window_days: 30,
+  buffer_mins_before_booking: 30,
   buffer_mins_after_booking: 30,
   default_start_time: "09:00",
   default_end_time: "17:00",
@@ -118,6 +120,7 @@ export function getBookableSlots(
       settings.buffer_mins_after_booking,
       startTime,
       endTime,
+      settings.buffer_mins_before_booking,
     ),
     duration,
     workingDate.blocked_slots,
@@ -131,17 +134,22 @@ export async function getBookingSettings(): Promise<BookingSettings> {
       .select("key, value")
       .in("key", [
         "booking_window_days",
+        "buffer_mins_before_booking",
         "buffer_mins_after_booking",
         "default_start_time",
         "default_end_time",
       ]);
 
     const values = new Map((data ?? []).map((row) => [row.key, row.value]));
+    const bufferBefore = Number.parseInt(values.get("buffer_mins_before_booking") ?? "", 10);
+    const bufferAfter = Number.parseInt(values.get("buffer_mins_after_booking") ?? "", 10);
 
     return {
       booking_window_days: Number.parseInt(values.get("booking_window_days") ?? "", 10) || DEFAULT_SETTINGS.booking_window_days,
+      buffer_mins_before_booking:
+        Number.isFinite(bufferBefore) ? bufferBefore : DEFAULT_SETTINGS.buffer_mins_before_booking,
       buffer_mins_after_booking:
-        Number.parseInt(values.get("buffer_mins_after_booking") ?? "", 10) || DEFAULT_SETTINGS.buffer_mins_after_booking,
+        Number.isFinite(bufferAfter) ? bufferAfter : DEFAULT_SETTINGS.buffer_mins_after_booking,
       default_start_time: values.get("default_start_time") || DEFAULT_SETTINGS.default_start_time,
       default_end_time: values.get("default_end_time") || DEFAULT_SETTINGS.default_end_time,
     };

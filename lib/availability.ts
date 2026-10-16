@@ -24,7 +24,8 @@ export function getAvailableSlots(
   existingBookings: ExistingBooking[] = [],
   bufferMinsAfterBooking: number = 30,
   startTime: string = "09:00",
-  endTime: string = "20:00"
+  endTime: string = "20:00",
+  bufferMinsBeforeBooking: number = 30
 ) {
   if (!date || !Number.isFinite(duration) || duration <= 0) return [];
 
@@ -40,7 +41,7 @@ export function getAvailableSlots(
     const blocked = existingBookings.some((b) => {
       const bs = toMinutes(b.start_time);
       const be = bs + b.duration_mins + bufferMinsAfterBooking; // Include buffer
-      return overlaps(slot, slotEnd, bs, be);
+      return overlaps(slot, slotEnd, bs - bufferMinsBeforeBooking, be);
     });
 
     if (!blocked) slots.push(toTime(slot));
