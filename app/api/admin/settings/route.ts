@@ -7,6 +7,7 @@ import { isValidUkPostcode, normalizePostcode } from "@/lib/booking-rules";
 
 const DEFAULT_SETTINGS = {
   booking_window_days: 30,
+  buffer_mins_before_booking: 30,
   buffer_mins_after_booking: 30,
   default_start_time: "09:00",
   default_end_time: "17:00",
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
       .select("key, value")
       .in("key", [
         "booking_window_days",
+        "buffer_mins_before_booking",
         "buffer_mins_after_booking",
         "default_start_time",
         "default_end_time",
@@ -48,6 +50,10 @@ export async function GET(request: NextRequest) {
     const values = new Map((data ?? []).map((row) => [row.key, row.value]));
     const response = {
       booking_window_days: parseNumberSetting(values.get("booking_window_days"), DEFAULT_SETTINGS.booking_window_days),
+      buffer_mins_before_booking: parseNumberSetting(
+        values.get("buffer_mins_before_booking"),
+        DEFAULT_SETTINGS.buffer_mins_before_booking,
+      ),
       buffer_mins_after_booking: parseNumberSetting(
         values.get("buffer_mins_after_booking"),
         DEFAULT_SETTINGS.buffer_mins_after_booking,
@@ -75,6 +81,7 @@ export async function GET(request: NextRequest) {
     console.error("Failed to fetch settings:", err);
     const fallback = {
       booking_window_days: DEFAULT_SETTINGS.booking_window_days,
+      buffer_mins_before_booking: DEFAULT_SETTINGS.buffer_mins_before_booking,
       buffer_mins_after_booking: DEFAULT_SETTINGS.buffer_mins_after_booking,
       default_start_time: DEFAULT_SETTINGS.default_start_time,
       default_end_time: DEFAULT_SETTINGS.default_end_time,
@@ -94,10 +101,11 @@ export async function POST(request: NextRequest) {
     if (!isAuthorizedAdminRequest(request)) return unauthorizedAdminResponse();
 
     const body = await request.json();
-    const { booking_window_days, buffer_mins_after_booking, default_start_time, default_end_time, therapist_postcode, max_travel_distance_miles } = body;
+    const { booking_window_days, buffer_mins_before_booking, buffer_mins_after_booking, default_start_time, default_end_time, therapist_postcode, max_travel_distance_miles } = body;
 
     if (
       booking_window_days === undefined ||
+      buffer_mins_before_booking === undefined ||
       buffer_mins_after_booking === undefined ||
       default_start_time === undefined ||
       default_end_time === undefined ||
@@ -105,6 +113,14 @@ export async function POST(request: NextRequest) {
       max_travel_distance_miles === undefined
     ) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (
+      [buffer_mins_before_booking, buffer_mins_after_booking].some(
+        (buffer) => !Number.isInteger(buffer) || buffer < 0 || buffer > 120,
+      )
+    ) {
+      return NextResponse.json({ error: "Buffer times must be whole minutes between 0 and 120." }, { status: 400 });
     }
 
     const normalizedTherapistPostcode =
@@ -121,6 +137,7 @@ export async function POST(request: NextRequest) {
 
     await Promise.all([
       upsertSetting("booking_window_days", String(booking_window_days)),
+      upsertSetting("buffer_mins_before_booking", String(buffer_mins_before_booking)),
       upsertSetting("buffer_mins_after_booking", String(buffer_mins_after_booking)),
       upsertSetting("default_start_time", String(default_start_time)),
       upsertSetting("default_end_time", String(default_end_time)),
@@ -131,6 +148,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         booking_window_days,
+        buffer_mins_before_booking,
         buffer_mins_after_booking,
         default_start_time,
         default_end_time,

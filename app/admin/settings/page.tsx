@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 interface Settings {
   booking_window_days: number;
+  buffer_mins_before_booking: number;
   buffer_mins_after_booking: number;
   default_start_time: string;
   default_end_time: string;
@@ -28,6 +29,7 @@ interface DateHours {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
     booking_window_days: 30,
+    buffer_mins_before_booking: 30,
     buffer_mins_after_booking: 30,
     default_start_time: "09:00",
     default_end_time: "17:00",
@@ -194,6 +196,7 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           booking_window_days: settings.booking_window_days,
+          buffer_mins_before_booking: settings.buffer_mins_before_booking,
           buffer_mins_after_booking: settings.buffer_mins_after_booking,
           default_start_time: settings.default_start_time,
           default_end_time: settings.default_end_time,
@@ -602,7 +605,41 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-500 mt-2">Minimum 7 days, maximum 90 days</p>
           </div>
 
-          {/* Buffer Time */}
+          {/* Buffer Time Before */}
+          <div className="border-t border-gray-200 pt-6">
+            <label className="block text-sm font-medium text-brand-blue mb-2">
+              Buffer Time Before Booking (minutes)
+            </label>
+            <p className="text-xs text-gray-600 mb-3">
+              Time to block before each appointment starts to allow for travel there.
+            </p>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0"
+                max="120"
+                step="5"
+                value={settings.buffer_mins_before_booking}
+                onChange={(e) => handleSettingChange("buffer_mins_before_booking", Number(e.target.value))}
+                className="flex-1 cursor-pointer"
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="5"
+                  value={settings.buffer_mins_before_booking}
+                  onChange={(e) => handleSettingChange("buffer_mins_before_booking", Number(e.target.value))}
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                />
+                <span className="text-sm text-gray-600">mins</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">0 to 120 minutes</p>
+          </div>
+
+          {/* Buffer Time After */}
           <div className="border-t border-gray-200 pt-6">
             <label className="block text-sm font-medium text-brand-blue mb-2">
               Buffer Time After Booking (minutes)
